@@ -1,0 +1,11 @@
+{
+  "slug": "markdown-pdf-code-proof",
+  "title": "Code Proof",
+  "territory": "utilities",
+  "user": "Engineers and technical writers producing long Markdown manuals who need to catch broken code blocks, wrapping, and internal links in the final PDF.",
+  "smallest_useful_product": "A local CLI that renders Markdown through a chosen engine, checks PDF annotations and page geometry, flags overflowing/unhighlighted fenced blocks, and emits an HTML proof sheet.",
+  "artifact_class": "cli",
+  "monetization": "free",
+  "constraints": "Do not execute embedded HTML/JavaScript with network access; sandbox renderer subprocesses; make checks engine-specific and reproducible.",
+  "state": "RESEARCHED"
+}
