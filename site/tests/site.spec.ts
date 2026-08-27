@@ -34,6 +34,17 @@ test('390px layout keeps primary paths available', async ({ page }) => {
   expect(width).toBeLessThanOrEqual(390);
 });
 
+test('installed shell stays useful offline', async ({ page, context }) => {
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator('h1')).toContainText('PDF bugs');
+  await expect(page.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible();
+  await context.setOffline(false);
+});
+
 for (const path of ['/privacy/', '/terms/']) {
   test(`${path} has a single semantic title`, async ({ page }) => {
     await page.goto(path);

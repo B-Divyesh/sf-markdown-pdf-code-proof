@@ -145,6 +145,46 @@ fn custom_renderer_requires_safe_placeholders() {
         ));
 }
 
+#[cfg(unix)]
+#[test]
+fn custom_renderer_runs_without_a_shell_and_is_checked() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let fixture = temp.path().join("fixture.pdf");
+    let renderer = temp.path().join("render-fixture");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Guide\n[Jump](#guide)\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    fixture_pdf(&fixture);
+    fs::write(
+        &renderer,
+        format!("#!/bin/sh\ncp '{}' \"$2\"\n", fixture.display()),
+    )
+    .unwrap();
+    fs::set_permissions(&renderer, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let command = format!("{} {{input}} {{output}}", renderer.display());
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--engine-command",
+            &command,
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"engine\": \"custom\""));
+}
+
 #[test]
 fn help_explains_the_ci_surface() {
     Command::cargo_bin("codeproof")
