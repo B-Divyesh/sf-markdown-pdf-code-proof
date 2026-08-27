@@ -167,7 +167,16 @@ fn count_link_annotations(document: &Document, page_id: ObjectId) -> usize {
             let Some(dict) = deref_dict(document, item) else {
                 return false;
             };
-            matches!(dict.get(b"Subtype").and_then(Object::as_name), Ok(b"Link"))
+            if !matches!(dict.get(b"Subtype").and_then(Object::as_name), Ok(b"Link")) {
+                return false;
+            }
+            if dict.has(b"Dest") {
+                return true;
+            }
+            let Ok(action) = dict.get(b"A").and_then(Object::as_dict) else {
+                return false;
+            };
+            matches!(action.get(b"S").and_then(Object::as_name), Ok(b"GoTo"))
         })
         .count()
 }
@@ -223,6 +232,7 @@ fn inspect_operations(
     let mut font_size = 12.0;
     let mut text_x = 0.0;
     let mut scale_x = 1.0;
+    let mut scale_stack = Vec::new();
     let mut worst = None;
     for op in &content.operations {
         match op.operator.as_str() {
@@ -232,6 +242,8 @@ fn inspect_operations(
                 }
             }
             "cm" if op.operands.len() >= 6 => scale_x *= number(&op.operands[0]).abs().max(0.01),
+            "q" => scale_stack.push(scale_x),
+            "Q" => scale_x = scale_stack.pop().unwrap_or(1.0),
             "Tf" if op.operands.len() >= 2 => font_size = number(&op.operands[1]).abs(),
             "Td" | "TD" if op.operands.len() >= 2 => text_x += number(&op.operands[0]),
             "Tm" if op.operands.len() >= 6 => text_x = number(&op.operands[4]),
@@ -272,6 +284,9 @@ fn inspect_operations(
 
 fn string_len(value: &Object) -> usize {
     match value {
+        Object::String(bytes, _) if bytes.starts_with(&[0xfe, 0xff]) => {
+            bytes.len().saturating_sub(2) / 2
+        }
         Object::String(bytes, _) => bytes.len(),
         _ => 0,
     }

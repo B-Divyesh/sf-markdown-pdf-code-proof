@@ -63,6 +63,9 @@ pub fn render(
     };
 
     let path = std::env::var_os("PATH").unwrap_or_default();
+    let stderr_path = workspace.path().join("renderer.stderr");
+    let stderr_file = std::fs::File::create(&stderr_path)
+        .map_err(|e| format!("could not prepare renderer log: {e}"))?;
     let mut command = Command::new(&program);
     command
         .args(&args)
@@ -73,8 +76,8 @@ pub fn render(
         .env("HOME", workspace.path())
         .env("TMPDIR", workspace.path())
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stdout(Stdio::null())
+        .stderr(Stdio::from(stderr_file));
     let mut child = command
         .spawn()
         .map_err(|e| format!("could not start renderer '{program}': {e}"))?;
@@ -82,11 +85,8 @@ pub fn render(
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
-                let result = child
-                    .wait_with_output()
-                    .map_err(|e| format!("could not collect renderer output: {e}"))?;
                 if !status.success() {
-                    let stderr = String::from_utf8_lossy(&result.stderr);
+                    let stderr = std::fs::read_to_string(&stderr_path).unwrap_or_default();
                     return Err(format!("renderer exited with {status}: {}", stderr.trim()));
                 }
                 break;

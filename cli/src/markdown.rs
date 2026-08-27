@@ -18,6 +18,14 @@ pub struct SourceContract {
     pub findings: Vec<Finding>,
 }
 
+struct ActiveFence {
+    line: usize,
+    marker: char,
+    width: usize,
+    language: Option<String>,
+    lines: Vec<String>,
+}
+
 pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
     let mut contract = SourceContract::default();
     if source.trim().is_empty() {
@@ -31,21 +39,21 @@ pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
         return contract;
     }
 
-    let mut active: Option<(usize, char, usize, Option<String>, Vec<String>)> = None;
+    let mut active: Option<ActiveFence> = None;
     for (offset, raw) in source.lines().enumerate() {
         let line_no = offset + 1;
         let trimmed = raw.trim_start();
-        if let Some((start, marker, width, language, lines)) = &mut active {
-            let closing = trimmed.chars().take_while(|c| *c == *marker).count();
-            if closing >= *width && trimmed[closing..].trim().is_empty() {
+        if let Some(open) = &mut active {
+            let closing = trimmed.chars().take_while(|c| *c == open.marker).count();
+            if closing >= open.width && trimmed[closing..].trim().is_empty() {
                 contract.fences.push(Fence {
-                    line: *start,
-                    language: language.take(),
-                    lines: std::mem::take(lines),
+                    line: open.line,
+                    language: open.language.take(),
+                    lines: std::mem::take(&mut open.lines),
                 });
                 active = None;
             } else {
-                lines.push(raw.to_owned());
+                open.lines.push(raw.to_owned());
             }
             continue;
         }
@@ -60,7 +68,13 @@ pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
                     .next()
                     .filter(|s| !s.is_empty())
                     .map(str::to_owned);
-                active = Some((line_no, marker, width, language, Vec::new()));
+                active = Some(ActiveFence {
+                    line: line_no,
+                    marker,
+                    width,
+                    language,
+                    lines: Vec::new(),
+                });
                 continue;
             }
         }
@@ -71,13 +85,13 @@ pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
         extract_fragment_links(raw, line_no, &mut contract.internal_links);
     }
 
-    if let Some((line, ..)) = active {
+    if let Some(open) = active {
         contract.findings.push(Finding::new(
             "source.unclosed-fence",
             Severity::Error,
-            format!("Code fence opened on line {line} is not closed"),
+            format!("Code fence opened on line {} is not closed", open.line),
             "Close the fence before rendering the PDF.",
-            Some(line),
+            Some(open.line),
         ));
     }
 

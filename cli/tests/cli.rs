@@ -101,6 +101,51 @@ fn missing_source_is_an_operational_error() {
 }
 
 #[test]
+fn invalid_source_is_a_contract_failure_with_evidence() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("empty.md");
+    let proof = temp.path().join("proof");
+    fs::write(&markdown, "\n").unwrap();
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            "unused.pdf",
+            "--out",
+            proof.to_str().unwrap(),
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("source.empty"));
+
+    assert!(proof.join("index.html").is_file());
+}
+
+#[test]
+fn custom_renderer_requires_safe_placeholders() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    fs::write(&markdown, "# Manual\n").unwrap();
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--engine-command",
+            "renderer-with-no-placeholders",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "must contain both {input} and {output}",
+        ));
+}
+
+#[test]
 fn help_explains_the_ci_surface() {
     Command::cargo_bin("codeproof")
         .unwrap()

@@ -8,7 +8,13 @@ use codeproof::report::{write_html, Report, Severity};
 use codeproof::{inspect_pdf, parse_markdown};
 
 #[derive(Parser)]
-#[command(name = "codeproof", version, about = "Catch broken code and links before a Markdown PDF ships", long_about = None)]
+#[command(
+    name = "codeproof",
+    version,
+    about = "Catch broken code and links before a Markdown PDF ships",
+    long_about = None,
+    after_help = "Examples:\n  codeproof check manual.md --engine pandoc --out proof\n  codeproof check manual.md --pdf dist/manual.pdf --json\n\nExit status: 0 passed, 1 defects found, 2 command could not complete."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
