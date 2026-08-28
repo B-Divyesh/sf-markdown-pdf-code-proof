@@ -43,7 +43,7 @@ npm run build
 cargo package --manifest-path cli/Cargo.toml --allow-dirty
 ```
 
-All passed: 3 Rust unit tests, 11 CLI integration tests, and 7 Playwright
+All passed: 3 Rust unit tests, 11 CLI integration tests, and 8 Playwright
 site tests. The browser suite includes axe serious/critical checks, desktop
 and 390px paths, reduced-motion behavior, keyboard/skip-link behavior,
 offline reload, and the production-shaped worker install. The production build

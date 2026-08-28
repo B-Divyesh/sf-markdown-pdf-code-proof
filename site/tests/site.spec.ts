@@ -3,10 +3,14 @@ import AxeBuilder from '@axe-core/playwright';
 
 test('landing page is usable, quiet, and accessible', async ({ page }) => {
   const errors: string[] = [];
+  const origins = new Set<string>();
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
-  await page.goto('/');
+  page.on('request', (request) => origins.add(new URL(request.url()).origin));
+  const response = await page.goto('/');
+  expect(response?.headers()['content-security-policy']).toContain("default-src 'self'");
+  expect(response?.headers()['x-content-type-options']).toBe('nosniff');
   await expect(page).toHaveTitle(/Code Proof/);
   await expect(page.locator('main')).toBeVisible();
   await expect(page.locator('h1')).toHaveCount(1);
@@ -16,6 +20,15 @@ test('landing page is usable, quiet, and accessible', async ({ page }) => {
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
   expect(errors).toEqual([]);
+  expect([...origins]).toEqual(['http://127.0.0.1:4173']);
+});
+
+test('skip link is the first keyboard stop and reaches main content', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('main')).toBeFocused();
 });
 
 test('recorded proof reports completion to assistive technology', async ({ page }) => {
