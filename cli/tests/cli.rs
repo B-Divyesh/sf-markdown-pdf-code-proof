@@ -15,6 +15,55 @@ fn fixture_pdf(path: &std::path::Path, annotation_targets: &[&str], named_target
     fixture_pdf_with_actions(path, annotation_targets, named_targets, &[]);
 }
 
+fn code_flow_pdf(path: &std::path::Path, runs: &[(&str, i64)]) {
+    let mut doc = Document::with_version("1.5");
+    let font = doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"
+    });
+    let resources = doc.add_object(dictionary! {
+        "Font" => dictionary! { "F1" => font }
+    });
+    let mut operations = vec![
+        Operation::new("rg", vec![0.into(), 0.into(), Object::Real(0.7)]),
+        Operation::new("BT", vec![]),
+        Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), 12.into()]),
+    ];
+    for (text, y) in runs {
+        operations.push(Operation::new(
+            "Tm",
+            vec![
+                1.into(),
+                0.into(),
+                0.into(),
+                1.into(),
+                72.into(),
+                (*y).into(),
+            ],
+        ));
+        operations.push(Operation::new("Tj", vec![Object::string_literal(*text)]));
+    }
+    operations.push(Operation::new("ET", vec![]));
+    let content = doc.add_object(Stream::new(
+        dictionary! {},
+        Content { operations }.encode().unwrap(),
+    ));
+    let pages = doc.new_object_id();
+    let page = doc.add_object(dictionary! {
+        "Type" => "Page", "Parent" => pages, "Contents" => content,
+        "Resources" => resources, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()]
+    });
+    doc.objects.insert(
+        pages,
+        Object::Dictionary(dictionary! {
+            "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1
+        }),
+    );
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    doc.trailer.set("Root", catalog);
+    doc.compress();
+    doc.save(path).unwrap();
+}
+
 fn fixture_pdf_with_actions(
     path: &std::path::Path,
     annotation_targets: &[&str],
@@ -133,6 +182,71 @@ fn documented_existing_pdf_flow_passes_and_writes_proof() {
     let html = fs::read_to_string(proof.join("index.html")).unwrap();
     assert!(html.contains("PASS"));
     assert!(html.contains("Code Proof report"));
+}
+
+#[test]
+fn flattened_code_lines_fail_the_release_contract() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("flattened.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Manual\n```rust\nlet first = 1;\nlet second = 2;\n```\n",
+    )
+    .unwrap();
+    code_flow_pdf(&pdf, &[("let first = 1; let second = 2;", 700)]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("\"passed\": false"))
+        .stdout(predicate::str::contains("code.flow-changed"));
+
+    assert!(fs::read_to_string(proof.join("index.html"))
+        .unwrap()
+        .contains("HOLD"));
+}
+
+#[test]
+fn separately_positioned_code_lines_preserve_flow() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("line-shaped.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Manual\n```rust\nlet first = 1;\nlet second = 2;\n```\n",
+    )
+    .unwrap();
+    code_flow_pdf(&pdf, &[("let first = 1;", 700), ("let second = 2;", 682)]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--no-highlight-check",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"passed\": true"))
+        .stdout(predicate::str::contains("\"findings\": []"));
 }
 
 #[test]

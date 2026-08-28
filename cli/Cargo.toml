@@ -2,7 +2,7 @@
 name = "codeproof"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.79"
+rust-version = "1.88"
 description = "Release checks for code-heavy Markdown PDFs"
 license = "MIT"
 repository = "https://github.com/B-Divyesh/sf-markdown-pdf-code-proof"

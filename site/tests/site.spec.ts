@@ -45,6 +45,21 @@ test('390px layout keeps primary paths available', async ({ page }) => {
   await expect(page.getByRole('link', { name: /Watch a proof run/ })).toBeVisible();
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
+
+  for (const selector of ['.contract-strip', '.terminal pre', '.command:nth-child(2) code', '.command:nth-child(3) code']) {
+    await expect(page.locator(selector)).toHaveAttribute('tabindex', '0');
+  }
+  const terms = await page.getByRole('link', { name: 'Terms' }).boundingBox();
+  expect(terms?.width).toBeGreaterThanOrEqual(44);
+  expect(terms?.height).toBeGreaterThanOrEqual(44);
+});
+
+test('brand accessible name contains its visible label', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: /Code Proof release inspector \/ 0\.1/i })).toBeVisible();
 });
 
 test('installed shell stays useful offline', async ({ page, context }) => {

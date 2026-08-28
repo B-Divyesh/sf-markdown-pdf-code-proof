@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "test": "cargo test --workspace && npm run test:site",
+    "test": "npm run test:msrv && cargo test --workspace && npm run test:site",
+    "test:msrv": "node scripts/check-msrv.mjs",
     "test:site": "npm run build:site && playwright test",
     "typecheck": "tsc --noEmit",
     "lint": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",

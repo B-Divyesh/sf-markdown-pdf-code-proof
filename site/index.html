@@ -11,7 +11,7 @@
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="masthead">
-      <a class="brand" href="/" aria-label="Code Proof home">
+      <a class="brand" href="/">
         <span class="brand-mark" aria-hidden="true">CP</span>
         <span>Code Proof <small>release inspector / 0.1</small></span>
       </a>
@@ -47,7 +47,7 @@
         </figure>
       </section>
 
-      <section class="contract-strip" aria-label="PDF release contract">
+      <section class="contract-strip" aria-label="PDF release contract" tabindex="0">
         <span>Markdown source</span><i aria-hidden="true">→</i><span>Your renderer</span><i aria-hidden="true">→</i><strong>Code Proof</strong><i aria-hidden="true">→</i><span>Release PDF</span>
       </section>
 
@@ -71,7 +71,7 @@
         </div>
         <div class="terminal" aria-label="Recorded Code Proof terminal output">
           <div class="terminal-bar"><span>codeproof / manual.md</span><span>offline</span></div>
-          <pre><code><span class="prompt">$</span> codeproof check manual.md --pdf dist/manual.pdf --out proof
+          <pre tabindex="0"><code><span class="prompt">$</span> codeproof check manual.md --pdf dist/manual.pdf --out proof
 
 <span class="line demo-line" data-step="1">READ   47 fenced blocks · 12 internal links</span>
 <span class="line demo-line" data-step="2">CHECK  page bounds · annotations · text flow · color</span>
@@ -106,9 +106,9 @@
           <a class="text-link" href="https://github.com/B-Divyesh/sf-markdown-pdf-code-proof#usage">Read the full CLI reference <span aria-hidden="true">↗</span></a>
         </div>
         <div class="commands">
-          <div class="command"><span>01 / build</span><code>cargo install --path cli</code><button type="button" class="copy-button" data-copy="cargo install --path cli" aria-label="Copy build command">Copy</button></div>
-          <div class="command"><span>02 / inspect</span><code>codeproof check manual.md --pdf manual.pdf</code><button type="button" class="copy-button" data-copy="codeproof check manual.md --pdf manual.pdf" aria-label="Copy inspect command">Copy</button></div>
-          <div class="command"><span>03 / CI</span><code>codeproof check manual.md --pdf manual.pdf --json</code><button type="button" class="copy-button" data-copy="codeproof check manual.md --pdf manual.pdf --json" aria-label="Copy CI command">Copy</button></div>
+          <div class="command"><span>01 / build</span><code tabindex="0">cargo install --path cli</code><button type="button" class="copy-button" data-copy="cargo install --path cli" aria-label="Copy build command">Copy</button></div>
+          <div class="command"><span>02 / inspect</span><code tabindex="0">codeproof check manual.md --pdf manual.pdf</code><button type="button" class="copy-button" data-copy="codeproof check manual.md --pdf manual.pdf" aria-label="Copy inspect command">Copy</button></div>
+          <div class="command"><span>03 / CI</span><code tabindex="0">codeproof check manual.md --pdf manual.pdf --json</code><button type="button" class="copy-button" data-copy="codeproof check manual.md --pdf manual.pdf --json" aria-label="Copy CI command">Copy</button></div>
         </div>
       </section>
 

@@ -11,7 +11,7 @@ Live docs: <https://markdown-pdf-code-proof.sociobot.in>
 ## Install
 
 Download the binary for your platform from a release, or build it with Rust
-1.79 or newer:
+1.88 or newer:
 
 ```sh
 cargo install --path cli

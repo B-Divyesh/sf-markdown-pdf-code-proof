@@ -13,6 +13,13 @@ All notable changes follow Keep a Changelog. This project uses Semantic Versioni
 
 ### Fixed
 
+- Preserve painted PDF baselines when checking fenced code, so source lines
+  flattened into a paragraph are a failing `code.flow-changed` defect.
+- Align the documented Rust minimum with the locked dependency floor and
+  enforce it in the repository test/CI gates.
+- Make mobile horizontal scroll regions explicitly keyboard-focusable, align
+  the brand's accessible name with its visible label, and keep every footer
+  target at least 44×44 CSS pixels.
 - Verify every Markdown fragment against its matching PDF named destination and
   resolved page, rather than treating a count of link annotations as proof.
 

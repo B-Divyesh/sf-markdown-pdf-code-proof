@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 use lopdf::content::Content;
-use lopdf::{Dictionary, Document, Object, ObjectId};
+use lopdf::{Dictionary, Document, Encoding, Object, ObjectId};
 
 use crate::markdown::SourceContract;
 use crate::report::{Finding, Severity};
@@ -33,6 +33,7 @@ pub fn inspect_pdf(
     let mut link_annotations = 0;
     let mut has_color = false;
     let mut all_text = String::new();
+    let mut visual_lines = Vec::new();
 
     for (number, id) in &pages {
         link_annotations += link_annotations_on_page(&document, *id).len();
@@ -54,6 +55,7 @@ pub fn inspect_pdf(
         }
         if let Ok(bytes) = document.get_page_content(*id) {
             if let Ok(content) = Content::decode(&bytes) {
+                visual_lines.extend(extract_visual_lines(&document, *id, &content));
                 let (colored, overflow) =
                     inspect_operations(&content, page_width(&document, *id), overflow_tolerance);
                 has_color |= colored;
@@ -98,21 +100,17 @@ pub fn inspect_pdf(
                 format!("First missing line: {}", truncate(missing[0], 90)),
                 Some(fence.line),
             ));
-        } else if useful.len() > 1 {
-            let joined = useful
-                .iter()
-                .map(|line| normalize(line))
-                .collect::<Vec<_>>()
-                .join(" ");
-            if !normalized_pdf.contains(&joined) {
-                findings.push(Finding::new(
-                    "code.flow-changed",
-                    Severity::Warning,
-                    format!("Code block on line {} is present but its line flow changed", fence.line),
-                    "Review this block in the proof sheet; wrapping or reordering may have occurred.",
-                    Some(fence.line),
-                ));
-            }
+        } else if useful.len() > 1 && !preserves_line_flow(&useful, &visual_lines) {
+            findings.push(Finding::new(
+                "code.flow-changed",
+                Severity::Error,
+                format!(
+                    "Code block on line {} is present but its line flow changed",
+                    fence.line
+                ),
+                "Restore the source line boundaries and order, then render again.",
+                Some(fence.line),
+            ));
         }
     }
 
@@ -138,6 +136,158 @@ pub fn inspect_pdf(
         findings,
         pages: pages.len(),
         link_annotations,
+    })
+}
+
+/// Extract text grouped by painted PDF baselines. `Document::extract_text`
+/// intentionally concatenates every `Tj`/`TJ` operation until `ET`, which
+/// loses the distinction between a code block and the same words flattened
+/// into a paragraph. This small text-state walker keeps that evidence.
+fn extract_visual_lines(document: &Document, page_id: ObjectId, content: &Content) -> Vec<String> {
+    let encodings: BTreeMap<Vec<u8>, Encoding<'_>> = document
+        .get_page_fonts(page_id)
+        .map(|fonts| {
+            fonts
+                .into_iter()
+                .filter_map(|(name, font)| {
+                    font.get_font_encoding(document)
+                        .ok()
+                        .map(|encoding| (name, encoding))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut current_font = Vec::new();
+    let mut current_line = String::new();
+    let mut lines = Vec::new();
+    let mut baseline = None;
+    let mut font_size = 12.0_f64;
+
+    for operation in &content.operations {
+        match operation.operator.as_str() {
+            "BT" => {
+                finish_visual_line(&mut lines, &mut current_line);
+                baseline = None;
+            }
+            "ET" => {
+                finish_visual_line(&mut lines, &mut current_line);
+                baseline = None;
+            }
+            "Tf" if operation.operands.len() >= 2 => {
+                if let Ok(name) = operation.operands[0].as_name() {
+                    current_font.clear();
+                    current_font.extend_from_slice(name);
+                }
+                font_size = number(&operation.operands[1]).abs().max(1.0);
+            }
+            "Tm" if operation.operands.len() >= 6 => {
+                move_to_baseline(
+                    number(&operation.operands[5]),
+                    font_size,
+                    &mut baseline,
+                    &mut lines,
+                    &mut current_line,
+                );
+            }
+            "Td" | "TD" if operation.operands.len() >= 2 => {
+                let next = baseline.unwrap_or(0.0) + number(&operation.operands[1]);
+                move_to_baseline(
+                    next,
+                    font_size,
+                    &mut baseline,
+                    &mut lines,
+                    &mut current_line,
+                );
+            }
+            "T*" => finish_visual_line(&mut lines, &mut current_line),
+            "'" | "\"" => {
+                finish_visual_line(&mut lines, &mut current_line);
+                if let Some(encoding) = encodings.get(&current_font) {
+                    append_decoded_text(
+                        &mut lines,
+                        &mut current_line,
+                        decode_text_operands(encoding, &operation.operands),
+                    );
+                }
+            }
+            "Tj" | "TJ" => {
+                if let Some(encoding) = encodings.get(&current_font) {
+                    append_decoded_text(
+                        &mut lines,
+                        &mut current_line,
+                        decode_text_operands(encoding, &operation.operands),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+    finish_visual_line(&mut lines, &mut current_line);
+    lines
+}
+
+fn move_to_baseline(
+    next: f64,
+    font_size: f64,
+    baseline: &mut Option<f64>,
+    lines: &mut Vec<String>,
+    current_line: &mut String,
+) {
+    // Renderers round text matrices differently. A font-relative tolerance
+    // ignores sub-point positioning noise while keeping actual code baselines
+    // (normally at least one em apart) distinct.
+    let tolerance = (font_size * 0.2).max(1.0);
+    if baseline.is_some_and(|current| (current - next).abs() > tolerance) {
+        finish_visual_line(lines, current_line);
+    }
+    *baseline = Some(next);
+}
+
+fn decode_text_operands(encoding: &Encoding<'_>, operands: &[Object]) -> String {
+    let mut output = String::new();
+    for operand in operands {
+        match operand {
+            Object::String(bytes, _) => {
+                if let Ok(text) = Document::decode_text(encoding, bytes) {
+                    output.push_str(&text);
+                }
+            }
+            Object::Array(values) => output.push_str(&decode_text_operands(encoding, values)),
+            Object::Integer(adjustment) if *adjustment < -100 => output.push(' '),
+            _ => {}
+        }
+    }
+    output
+}
+
+fn append_decoded_text(lines: &mut Vec<String>, current_line: &mut String, text: String) {
+    let mut parts = text.split('\n').peekable();
+    while let Some(part) = parts.next() {
+        current_line.push_str(part);
+        if parts.peek().is_some() {
+            finish_visual_line(lines, current_line);
+        }
+    }
+}
+
+fn finish_visual_line(lines: &mut Vec<String>, current_line: &mut String) {
+    let line = normalize(current_line);
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    current_line.clear();
+}
+
+fn preserves_line_flow(source_lines: &[&str], visual_lines: &[String]) -> bool {
+    let source_lines = source_lines
+        .iter()
+        .map(|line| normalize(line))
+        .collect::<Vec<_>>();
+    visual_lines.windows(source_lines.len()).any(|window| {
+        source_lines
+            .iter()
+            .zip(window)
+            .all(|(source, painted)| painted.contains(source))
     })
 }
 
@@ -274,7 +424,8 @@ fn collect_name_tree(
     }
     if let Ok(value) = tree.get(b"Names") {
         if let Ok(names) = deref_array(document, value) {
-            for pair in names.chunks_exact(2) {
+            let (pairs, _) = names.as_chunks::<2>();
+            for pair in pairs {
                 if let Some(name) = object_destination_name(document, &pair[0]) {
                     entries.insert(name, pair[1].clone());
                 }
