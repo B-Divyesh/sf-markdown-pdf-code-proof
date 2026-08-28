@@ -5,7 +5,16 @@ use lopdf::content::{Content, Operation};
 use lopdf::{dictionary, Document, Object, Stream};
 use predicates::prelude::*;
 
-fn fixture_pdf(path: &std::path::Path) {
+fn fixture_pdf(path: &std::path::Path, annotation_targets: &[&str], named_targets: &[&str]) {
+    fixture_pdf_with_actions(path, annotation_targets, named_targets, &[]);
+}
+
+fn fixture_pdf_with_actions(
+    path: &std::path::Path,
+    annotation_targets: &[&str],
+    named_targets: &[&str],
+    action_indexes: &[usize],
+) {
     let mut doc = Document::with_version("1.5");
     let font = doc.add_object(dictionary! {
         "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"
@@ -34,16 +43,32 @@ fn fixture_pdf(path: &std::path::Path) {
         ],
     };
     let content = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
-    let annotation = doc.add_object(dictionary! {
-        "Type" => "Annot", "Subtype" => "Link",
-        "Rect" => vec![72.into(), 680.into(), 140.into(), 695.into()],
-        "Dest" => vec![Object::Name(b"guide".to_vec()), Object::Name(b"Fit".to_vec())]
-    });
+    let annotations = annotation_targets
+        .iter()
+        .enumerate()
+        .map(|(index, target)| {
+            let mut annotation = dictionary! {
+                "Type" => "Annot", "Subtype" => "Link",
+                "Rect" => vec![72.into(), 680.into(), 140.into(), 695.into()]
+            };
+            if action_indexes.contains(&index) {
+                annotation.set(
+                    "A",
+                    dictionary! {
+                        "S" => "GoTo", "D" => Object::Name(target.as_bytes().to_vec())
+                    },
+                );
+            } else {
+                annotation.set("Dest", Object::Name(target.as_bytes().to_vec()));
+            }
+            doc.add_object(annotation)
+        })
+        .collect::<Vec<_>>();
     let pages = doc.new_object_id();
     let page = doc.add_object(dictionary! {
         "Type" => "Page", "Parent" => pages, "Contents" => content,
         "Resources" => resources, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
-        "Annots" => vec![annotation.into()]
+        "Annots" => annotations.iter().copied().map(Object::from).collect::<Vec<_>>()
     });
     doc.objects.insert(
         pages,
@@ -51,7 +76,21 @@ fn fixture_pdf(path: &std::path::Path) {
             "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1
         }),
     );
-    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    let mut name_entries = Vec::new();
+    for target in named_targets {
+        name_entries.push(Object::string_literal(*target));
+        name_entries.push(Object::Array(vec![
+            page.into(),
+            Object::Name(b"Fit".to_vec()),
+        ]));
+    }
+    let mut destinations = lopdf::Dictionary::new();
+    destinations.set("Names", Object::Array(name_entries));
+    let mut names = lopdf::Dictionary::new();
+    names.set("Dests", destinations);
+    let catalog = doc.add_object(dictionary! {
+        "Type" => "Catalog", "Pages" => pages, "Names" => names
+    });
     doc.trailer.set("Root", catalog);
     doc.compress();
     doc.save(path).unwrap();
@@ -68,7 +107,7 @@ fn documented_existing_pdf_flow_passes_and_writes_proof() {
         "# Guide\n[Jump](#guide)\n```rust\nfn main() {}\n```\n",
     )
     .unwrap();
-    fixture_pdf(&pdf);
+    fixture_pdf(&pdf, &["guide"], &["guide"]);
 
     Command::cargo_bin("codeproof")
         .unwrap()
@@ -160,7 +199,7 @@ fn custom_renderer_runs_without_a_shell_and_is_checked() {
         "# Guide\n[Jump](#guide)\n```rust\nfn main() {}\n```\n",
     )
     .unwrap();
-    fixture_pdf(&fixture);
+    fixture_pdf(&fixture, &["guide"], &["guide"]);
     fs::write(
         &renderer,
         format!("#!/bin/sh\ncp '{}' \"$2\"\n", fixture.display()),
@@ -183,6 +222,127 @@ fn custom_renderer_runs_without_a_shell_and_is_checked() {
         .assert()
         .success()
         .stdout(predicate::str::contains("\"engine\": \"custom\""));
+}
+
+#[test]
+fn valid_multiple_fragment_destinations_pass() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("manual.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Guide\n[First](#guide)\n# Second\n[Second](#second)\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    fixture_pdf_with_actions(&pdf, &["guide", "second"], &["guide", "second"], &[1]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"passed\": true"));
+}
+
+#[test]
+fn duplicate_pdf_destination_cannot_satisfy_different_fragments() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("manual.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Guide\n[First](#guide)\n# Second\n[Second](#second)\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    fixture_pdf(&pdf, &["guide", "guide"], &["guide"]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("link.destination-missing"))
+        .stdout(predicate::str::contains("Markdown link #second"));
+}
+
+#[test]
+fn wrong_pdf_destination_cannot_satisfy_a_fragment() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("manual.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Guide\n[First](#guide)\n# Second\n[Second](#second)\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    fixture_pdf(&pdf, &["guide", "appendix"], &["guide", "appendix"]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("link.destination-missing"))
+        .stdout(predicate::str::contains("Markdown link #second"));
+}
+
+#[test]
+fn unresolved_named_destination_fails_the_fragment_contract() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("manual.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Guide\n[First](#guide)\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    fixture_pdf(&pdf, &["guide"], &[]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("link.destination-unresolved"))
+        .stdout(predicate::str::contains(
+            "#guide does not resolve to a PDF page",
+        ));
 }
 
 #[test]

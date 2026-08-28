@@ -57,8 +57,9 @@ fail the build; add `--deny-warnings` to promote them.
 
 Checks in v0.1:
 
-- every Markdown fragment link resolves to a heading and is represented by a
-  PDF link annotation;
+- every Markdown fragment link resolves to a heading and maps one-for-one to a
+  PDF link annotation with the same named destination; that destination must
+  resolve to a page in the final PDF;
 - code fence text remains present and line-shaped in the PDF;
 - painted text stays within the page media/crop box, with a configurable
   tolerance;

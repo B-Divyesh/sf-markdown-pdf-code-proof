@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use lopdf::content::Content;
@@ -34,7 +35,7 @@ pub fn inspect_pdf(
     let mut all_text = String::new();
 
     for (number, id) in &pages {
-        link_annotations += count_link_annotations(&document, *id);
+        link_annotations += link_annotations_on_page(&document, *id).len();
         match document.extract_text(&[*number]) {
             Ok(text) => {
                 all_text.push_str(&text);
@@ -69,18 +70,7 @@ pub fn inspect_pdf(
         }
     }
 
-    if link_annotations < source.internal_links.len() {
-        findings.push(Finding::new(
-            "link.annotations-missing",
-            Severity::Error,
-            format!(
-                "Found {link_annotations} PDF link annotations for {} internal Markdown links",
-                source.internal_links.len()
-            ),
-            "Enable link preservation in the renderer and inspect the proof PDF.",
-            source.internal_links.first().map(|(line, _)| *line),
-        ));
-    }
+    inspect_internal_links(&document, &pages, source, &mut findings);
 
     let normalized_pdf = normalize(&all_text);
     for fence in &source.fences {
@@ -151,34 +141,184 @@ pub fn inspect_pdf(
     })
 }
 
-fn count_link_annotations(document: &Document, page_id: ObjectId) -> usize {
+fn inspect_internal_links(
+    document: &Document,
+    pages: &std::collections::BTreeMap<u32, ObjectId>,
+    source: &SourceContract,
+    findings: &mut Vec<Finding>,
+) {
+    if source.internal_links.is_empty() {
+        return;
+    }
+
+    let named_destinations = named_destinations(document, pages);
+    let mut annotations_by_target: HashMap<String, usize> = HashMap::new();
+    for page_id in pages.values() {
+        for destination in link_annotations_on_page(document, *page_id) {
+            if let Some(target) = named_destination_target(document, destination) {
+                *annotations_by_target.entry(target).or_default() += 1;
+            }
+        }
+    }
+
+    let mut seen_by_target: HashMap<&str, usize> = HashMap::new();
+    for (line, target) in &source.internal_links {
+        let seen = seen_by_target.entry(target).or_default();
+        *seen += 1;
+        let annotation_count = annotations_by_target.get(target).copied().unwrap_or(0);
+
+        if annotation_count < *seen {
+            findings.push(Finding::new(
+                "link.destination-missing",
+                Severity::Error,
+                format!("Markdown link #{target} has no matching PDF link annotation"),
+                "Preserve this fragment as a named PDF destination and link to it in the rendered PDF.",
+                Some(*line),
+            ));
+        } else if !named_destinations.get(target).copied().unwrap_or(false) {
+            findings.push(Finding::new(
+                "link.destination-unresolved",
+                Severity::Error,
+                format!("PDF link destination #{target} does not resolve to a PDF page"),
+                "Emit a named destination for this heading that points to a page in the PDF.",
+                Some(*line),
+            ));
+        }
+    }
+}
+
+fn link_annotations_on_page(document: &Document, page_id: ObjectId) -> Vec<&Object> {
     let Ok(page) = document.get_dictionary(page_id) else {
-        return 0;
+        return Vec::new();
     };
     let Ok(annots) = page.get(b"Annots") else {
-        return 0;
+        return Vec::new();
     };
     let Ok(items) = deref_array(document, annots) else {
-        return 0;
+        return Vec::new();
     };
     items
         .iter()
-        .filter(|item| {
-            let Some(dict) = deref_dict(document, item) else {
-                return false;
-            };
+        .filter_map(|item| {
+            let dict = deref_dict(document, item)?;
             if !matches!(dict.get(b"Subtype").and_then(Object::as_name), Ok(b"Link")) {
-                return false;
+                return None;
             }
-            if dict.has(b"Dest") {
-                return true;
+            if let Ok(destination) = dict.get(b"Dest") {
+                return Some(destination);
             }
-            let Ok(action) = dict.get(b"A").and_then(Object::as_dict) else {
-                return false;
-            };
-            matches!(action.get(b"S").and_then(Object::as_name), Ok(b"GoTo"))
+            let action = dict
+                .get(b"A")
+                .ok()
+                .and_then(|value| deref_dict(document, value))?;
+            if !matches!(action.get(b"S").and_then(Object::as_name), Ok(b"GoTo")) {
+                return None;
+            }
+            action.get(b"D").ok()
         })
-        .count()
+        .collect()
+}
+
+fn named_destinations(
+    document: &Document,
+    pages: &std::collections::BTreeMap<u32, ObjectId>,
+) -> HashMap<String, bool> {
+    let Ok(root) = document.trailer.get(b"Root") else {
+        return HashMap::new();
+    };
+    let Some(catalog) = deref_dict(document, root) else {
+        return HashMap::new();
+    };
+
+    let mut entries = HashMap::new();
+    if let Ok(value) = catalog.get(b"Dests") {
+        if let Some(destinations) = deref_dict(document, value) {
+            for (name, destination) in destinations.iter() {
+                entries.insert(normalize_destination_name(name), destination.clone());
+            }
+        }
+    }
+    if let Some(names) = catalog
+        .get(b"Names")
+        .ok()
+        .and_then(|value| deref_dict(document, value))
+    {
+        if let Some(tree) = names
+            .get(b"Dests")
+            .ok()
+            .and_then(|value| deref_dict(document, value))
+        {
+            collect_name_tree(document, tree, &mut entries, 0);
+        }
+    }
+
+    let page_ids: HashSet<ObjectId> = pages.values().copied().collect();
+    entries
+        .into_iter()
+        .map(|(name, destination)| {
+            let resolves = destination_page(document, &destination)
+                .is_some_and(|page| page_ids.contains(&page));
+            (name, resolves)
+        })
+        .collect()
+}
+
+fn collect_name_tree(
+    document: &Document,
+    tree: &Dictionary,
+    entries: &mut HashMap<String, Object>,
+    depth: usize,
+) {
+    if depth > 32 {
+        return;
+    }
+    if let Ok(value) = tree.get(b"Names") {
+        if let Ok(names) = deref_array(document, value) {
+            for pair in names.chunks_exact(2) {
+                if let Some(name) = object_destination_name(document, &pair[0]) {
+                    entries.insert(name, pair[1].clone());
+                }
+            }
+        }
+    }
+    if let Ok(value) = tree.get(b"Kids") {
+        if let Ok(kids) = deref_array(document, value) {
+            for kid in kids {
+                if let Some(child) = deref_dict(document, kid) {
+                    collect_name_tree(document, child, entries, depth + 1);
+                }
+            }
+        }
+    }
+}
+
+fn named_destination_target(document: &Document, destination: &Object) -> Option<String> {
+    object_destination_name(document, destination)
+}
+
+fn object_destination_name(document: &Document, object: &Object) -> Option<String> {
+    let (_, object) = document.dereference(object).ok()?;
+    match object {
+        Object::Name(name) | Object::String(name, _) => Some(normalize_destination_name(name)),
+        _ => None,
+    }
+}
+
+fn normalize_destination_name(name: &[u8]) -> String {
+    String::from_utf8_lossy(name).to_lowercase()
+}
+
+fn destination_page(document: &Document, destination: &Object) -> Option<ObjectId> {
+    let (_, destination) = document.dereference(destination).ok()?;
+    let destination = match destination {
+        Object::Dictionary(dict) => dict.get(b"D").ok()?,
+        value => value,
+    };
+    let (_, destination) = document.dereference(destination).ok()?;
+    let Object::Array(values) = destination else {
+        return None;
+    };
+    values.first()?.as_reference().ok()
 }
 
 fn deref_array<'a>(document: &'a Document, object: &'a Object) -> Result<&'a Vec<Object>, ()> {
