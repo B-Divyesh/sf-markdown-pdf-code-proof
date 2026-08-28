@@ -86,12 +86,20 @@ The artifact class is unchanged: a Rust single-binary CLI plus the existing
 Vite static documentation site. No registry publish was attempted; the package
 is ready for the factory to publish with the `cargo package` command above.
 
-The deployment configuration remains `site/public/staticwebapp.config.json`;
-deployment is triggered by pushing `main` to the configured factory remote.
-Before the push, the live identity endpoint returned HTTP 200, the expected
-Code Proof title/lang markup, and the existing self-only CSP, HSTS,
-`nosniff`, referrer, and permissions-policy headers. Verify the new deployment
-at `https://markdown-pdf-code-proof.sociobot.in` after the repair commit lands.
+The repair commit `d2b5d8cb5b6016e98e6cf1d4c004de499d62f235` was pushed to
+`origin/main`. The deployment configuration remains
+`site/public/staticwebapp.config.json`. Before the push, the live identity
+endpoint returned HTTP 200, the expected Code Proof title/lang markup, and the
+existing self-only CSP, HSTS, `nosniff`, referrer, and permissions-policy
+headers.
+
+At 2026-08-28 01:48 UTC, the live endpoint still served the previous revision
+(old internal-link copy, ETag `"12893512"`, last modified 2026-08-27 23:59:06
+UTC). The repository contains no deployment workflow or deploy credential, and
+the public GitHub Actions/deployments APIs returned no run to invoke. The
+static deployment trigger has therefore been submitted by pushing `main`; the
+factory deployment service must publish this commit before live verification
+can complete.
 
 ## Known gaps
 
