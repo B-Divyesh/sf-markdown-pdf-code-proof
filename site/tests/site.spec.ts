@@ -37,12 +37,27 @@ test('390px layout keeps primary paths available', async ({ page }) => {
 test('installed shell stays useful offline', async ({ page, context }) => {
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+  await expect.poll(() => page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return registration?.active?.state === 'activated';
+  })).toBe(true);
   await page.reload();
   await context.setOffline(true);
   await page.reload();
   await expect(page.locator('h1')).toContainText('PDF bugs');
   await expect(page.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible();
   await context.setOffline(false);
+});
+
+test('worker installs with production-only deployment files unavailable', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+  const shell = await page.evaluate(async () => (await fetch('/sw.js')).text());
+  expect(shell).not.toContain('staticwebapp.config.json');
+  const caches = await page.evaluate(async () => (await caches.keys()).filter((name) => name.startsWith('code-proof-')));
+  expect(caches).toContain('code-proof-v2');
 });
 
 for (const path of ['/privacy/', '/terms/']) {

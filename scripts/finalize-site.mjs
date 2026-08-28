@@ -15,7 +15,9 @@ async function files(directory) {
 
 const built = await files(root);
 const shell = built
-  .filter((path) => !path.endsWith('sw.js') && !path.endsWith('.map'))
+  // Deployment control files are consumed by Static Web Apps, not served. A
+  // 404 in cache.addAll rejects the entire worker install.
+  .filter((path) => !path.endsWith('sw.js') && !path.endsWith('.map') && !path.endsWith('staticwebapp.config.json'))
   .map((path) => `/${relative(root, path).split(sep).join('/')}`)
   .map((path) => path.endsWith('/index.html') ? path.slice(0, -10) : path);
 const swPath = join(root, 'sw.js');

@@ -72,12 +72,14 @@ Run `codeproof check --help` for all engine-specific controls.
 
 ## Renderer safety
 
-Renderer processes are launched directly, with a clean environment, inside an
-isolated temporary working directory. Network proxy variables and common
-credential variables are removed. The built-in Pandoc adapter disables raw
-HTML and uses a fixed argument list. Code Proof enforces a timeout and never
-executes Markdown scripts itself. This is process isolation, not an OS security
-boundary; use your CI sandbox for untrusted documents.
+On Linux, every renderer is contained with kernel-enforced Landlock and seccomp
+rules. It gets a read-only view of the Markdown source directory and the
+runtime files it needs, a writable private proof workspace, and no ability to
+create or use network sockets. Code Proof refuses to launch a renderer where
+those kernel controls are unavailable; checking an existing PDF remains
+available everywhere. The built-in Pandoc adapter also disables raw HTML and
+uses a fixed argument list. Code Proof enforces a timeout and never executes
+Markdown scripts itself.
 
 ## Develop and verify
 

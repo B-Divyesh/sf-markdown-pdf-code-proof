@@ -1,4 +1,10 @@
 use std::fs;
+#[cfg(unix)]
+use std::net::TcpListener;
+#[cfg(unix)]
+use std::process::Stdio;
+#[cfg(unix)]
+use std::time::Duration;
 
 use assert_cmd::Command;
 use lopdf::content::{Content, Operation};
@@ -222,6 +228,48 @@ fn custom_renderer_runs_without_a_shell_and_is_checked() {
         .assert()
         .success()
         .stdout(predicate::str::contains("\"engine\": \"custom\""));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn renderer_sandbox_denies_network_connections() {
+    if std::process::Command::new("curl")
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_err()
+    {
+        return;
+    }
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    fs::write(&markdown, "# Manual\n").unwrap();
+    let command = format!(
+        "/bin/sh -c \"curl --connect-timeout 1 --max-time 1 -fsS http://{address}/network-probe >/dev/null; test $? -ne 0\" {{input}} {{output}}"
+    );
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--engine-command",
+            &command,
+            "--timeout",
+            "5",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("completed without creating"));
+
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(
+        listener.accept().is_err(),
+        "sandboxed renderer reached the network"
+    );
 }
 
 #[test]

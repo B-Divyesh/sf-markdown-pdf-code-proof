@@ -2,7 +2,12 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "linux")]
+use std::os::unix::process::CommandExt;
+
 use tempfile::TempDir;
+
+use crate::sandbox::Sandbox;
 
 pub struct RenderedPdf {
     pub path: PathBuf,
@@ -63,10 +68,12 @@ pub fn render(
     };
 
     let path = std::env::var_os("PATH").unwrap_or_default();
+    let program_path = resolve_program(&program, &path)?;
+    let sandbox = Sandbox::prepare(source_parent, workspace.path(), &program_path)?;
     let stderr_path = workspace.path().join("renderer.stderr");
     let stderr_file = std::fs::File::create(&stderr_path)
         .map_err(|e| format!("could not prepare renderer log: {e}"))?;
-    let mut command = Command::new(&program);
+    let mut command = Command::new(&program_path);
     command
         .args(&args)
         .current_dir(workspace.path())
@@ -78,6 +85,10 @@ pub fn render(
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::from(stderr_file));
+    #[cfg(target_os = "linux")]
+    unsafe {
+        command.pre_exec(move || sandbox.apply());
+    }
     let mut child = command
         .spawn()
         .map_err(|e| format!("could not start renderer '{program}': {e}"))?;
@@ -113,6 +124,24 @@ pub fn render(
         engine: label,
         _workspace: Some(workspace),
     })
+}
+
+fn resolve_program(program: &str, path: &std::ffi::OsStr) -> Result<PathBuf, String> {
+    let candidate = Path::new(program);
+    if candidate.components().count() > 1 {
+        return candidate
+            .canonicalize()
+            .map_err(|e| format!("could not resolve renderer '{program}': {e}"));
+    }
+    for directory in std::env::split_paths(path) {
+        let candidate = directory.join(program);
+        if candidate.is_file() {
+            return candidate
+                .canonicalize()
+                .map_err(|e| format!("could not resolve renderer '{program}': {e}"));
+        }
+    }
+    Err(format!("could not find renderer '{program}' on PATH"))
 }
 
 pub fn existing(path: &Path) -> Result<RenderedPdf, String> {

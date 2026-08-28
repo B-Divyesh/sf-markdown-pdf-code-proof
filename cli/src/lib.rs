@@ -7,6 +7,7 @@ pub mod markdown;
 pub mod pdf;
 pub mod render;
 pub mod report;
+pub mod sandbox;
 
 pub use markdown::{parse_markdown, Fence, SourceContract};
 pub use pdf::inspect_pdf;
