@@ -1,30 +1,54 @@
-# Code Proof independent verification 4 — FAIL
+# Code Proof repair 4 handoff
 
-- Work order: `markdown-pdf-code-proof-verify-4`
-- Candidate: `648c8eae0e768dffdc358925b109d28b50c37a3e`
+- Work order: `markdown-pdf-code-proof-repair-4`
+- Repaired candidate: `648c8eae0e768dffdc358925b109d28b50c37a3e`
+- Verifier report commit: `d19f9d8eae01537183a98c68a5bd62f9a72a9200`
+- Deployed code commit: `0fb0db1f0e0a10ab34498be8460f0e36e8973386`
 - Live URL: <https://markdown-pdf-code-proof.sociobot.in>
-- Result: **FAIL**
-- Full evidence: `.factory/verification-4.md`
+- Result: release-blocking and minor findings repaired; local and live gates pass
 
-## Decision
+## What changed
 
-The deployment-only problem reported in earlier work is repaired: the live site
-is HTTPS 200, byte-identical to this candidate's fresh production build, secure,
-accessible, offline-capable, and within every stated bundle/performance budget.
-The candidate still fails the primary CLI acceptance contract.
+The critical failure was reproduced before implementation. A one-line
+JavaScript fence was painted as two text runs at y=700pt and y=682pt. The old
+candidate returned exit `0`, `"passed": true`, no findings, and a PASS proof.
+The regression now requires exit `1`, `code.flow-changed`, and a HOLD proof.
 
-The packaged consumer binary returned exit `0` and wrote a clean `PASS` proof
-for a one-line fenced JavaScript command painted on two distinct PDF baselines.
-This is the wrapping defect the product exists to stop. The implementation only
-runs line-flow comparison when a source fence has more than one non-empty line.
+Line-flow comparison now runs for every non-empty fence. A one-line source must
+therefore appear on one painted PDF baseline; splitting it across baselines is
+no longer skipped.
 
-A second high-severity gap remains in geometry inspection: text beginning left
-of a 612×792pt media box or painted above it also returned exit `0`; only the
-right edge is currently checked.
+The page geometry check now evaluates estimated text quads against the left,
+right, top, and bottom CropBox or MediaBox edges. It applies the content and
+text matrices, font size, horizontal scale, text rise, leading, and TJ
+adjustments. CropBox inheritance and non-zero box origins are supported.
+Findings name the failed edge, coordinate, boundary, and PDF page.
 
-## Verification completed
+Exact regressions cover:
 
-From a separate clean detached checkout of the exact SHA:
+- the verifier's wrapped one-line JavaScript case;
+- left, right, top, and bottom MediaBox escape;
+- CropBox precedence over MediaBox;
+- missing fenced content and missing syntax color policy;
+- prior passing controls for line-shaped code, flattened multi-line code,
+  links, renderer sandboxing, proof output, and stable exit behavior.
+
+The CLI now includes `codeproof demo`. It copies bundled sample Markdown into a
+new temporary workspace, creates a deterministic PDF with the wrapped-line
+defect, runs the real inspector, and writes a HOLD proof. It prints every output
+path and exits `1`, as expected for a detected defect. The same sample is shown
+from the landing page's one-click demo. `.factory/demo.md`,
+`.factory/claims.json`, and `.factory/copy-audit.md` document this behavior.
+
+The static site keeps the release-room risograph identity and original artwork.
+It now has plain first-screen copy, a one-click sample action, an explicit demo
+banner, route metadata, a branded 404 response, consistent footers, 44px mobile
+controls, dedicated privacy/offline claim tests, and service-worker cache
+version `code-proof-v3` for clean updates.
+
+## Clean local verification
+
+The worktree was clean at `0fb0db1` after these commands:
 
 ```sh
 npm ci
@@ -33,35 +57,94 @@ npm run typecheck
 npm run lint
 npm run build
 cargo package --manifest-path cli/Cargo.toml --locked
-cargo +1.88.0 check --manifest-path <unpacked>/Cargo.toml --locked
-cargo +1.88.0 run --manifest-path <clean-api-consumer>/Cargo.toml --locked
+cargo +1.88.0 check --manifest-path target/package/codeproof-0.1.0/Cargo.toml --locked
+cargo +1.88.0 test --manifest-path target/package/codeproof-0.1.0/Cargo.toml --locked
 ```
 
-All repository gates passed: 3 Rust unit tests, 13 CLI integrations, 9 browser
-tests, typecheck, rustfmt, Clippy, and exact production build. The crate packaged
-13 files (109.9KiB unpacked / 29.3KiB compressed), installed into an isolated
-consumer root, reported version 0.1.0, exposed useful help/JSON/stable exits, and
-its public API compiled at the declared Rust 1.88 minimum.
+Results:
 
-Independent CLI checks covered valid output, flattened lines, single-line wrap,
-missing code, all tested page edges, valid/broken destinations, highlighting
-warning policy, malformed/empty input, corrupt/missing files, invalid numeric
-boundaries, custom renderer success/timeout, unavailable Pandoc, proof output,
-and renderer network denial. Pandoc itself was not installed, so the real
-built-in Pandoc backend could not be exercised.
+- `npm ci`: 22 packages installed, 23 audited, 0 vulnerabilities.
+- `npm test`: Rust MSRV metadata gate, 3 unit tests, 18 CLI integration tests,
+  and 12 Playwright tests passed.
+- `npm run typecheck`: `tsc --noEmit` passed.
+- `npm run lint`: rustfmt and Clippy for all targets passed with warnings denied.
+- `npm run build`: release binary and `dist/site/` produced.
+- Every command in `.factory/claims.json`: 10 of 10 passed independently.
+- Packaged crate: 15 files, 132.2 KiB unpacked, 33.5 KiB compressed.
+- Packaged source: all 3 unit and 18 integration tests passed under Rust 1.88.
+- Clean Rust 1.88 install: `codeproof 0.1.0`; help, demo, expected exit `1`,
+  sample PDF, and HOLD proof verified.
+- Clean Rust 1.88 API consumer: `parse_markdown` compiled and parsed one fence
+  and one internal link.
+- No registry publish was attempted.
 
-Live desktop and 390px Chromium checks found zero Axe violations, zero console/
-page/request errors, designed keyboard focus, working copy/replay feedback,
-reduced-motion compliance, no tracking/storage, same-origin-only requests, and
-a healthy service-worker update/offline reload. Lighthouse mobile scored
-100/100/100/100 with LCP 1.8s, TBT 40ms, and CLS 0.
+Artifact sizes:
 
-## Required next steps
+- `target/release/codeproof`: 2,107,144 bytes.
+- `target/package/codeproof-0.1.0.crate`: 33.5 KiB compressed.
+- initial JavaScript: 2,151 bytes / 1.00 KiB gzip.
+- CSS: 10,897 bytes / 3.27 KiB gzip.
+- fonts: 0 bytes.
+- hero WebP: 210,844 bytes.
 
-1. Compare source/PDF baseline cardinality and order for one-line fences as well
-   as multi-line fences; add a one-line-wrap regression that must exit 1.
-2. Evaluate painted bounds against left, right, top, and bottom CropBox/MediaBox
-   edges after text/page transforms; add left and vertical overflow regressions.
-3. Re-run the full clean package, consumer, browser, and live identity suite.
+## Browser, accessibility, privacy, and offline evidence
 
-No product code was modified and no registry publish was attempted.
+Fresh Chromium contexts covered 1440×900 and 390×844. The repository suite and
+live smoke test found:
+
+- zero serious or critical Axe findings on root, privacy, terms, and 404;
+- zero console errors, page errors, or failed requests before the intentional
+  404 navigation;
+- one `<h1>`, one `<main>`, `lang=en`, route titles, alt text, and zero mobile
+  horizontal overflow;
+- first Tab on “Skip to content”; Enter focused `main`; Space operated the demo;
+- no visible link or button below 44×44 CSS px at 390px;
+- reduced motion at `1e-05s`, `scroll-behavior: auto`, and complete demo status;
+- same-origin requests only, zero cookies, and empty local/session storage;
+- active controlling service worker, only `code-proof-v3`, no installing or
+  waiting update, and HTTP 200 with the visible offline state after reload;
+- packaged HOLD proof at 390×844: one title/h1/main, no horizontal overflow,
+  no console error, and zero serious or critical Axe findings.
+
+The factory `/opt/fleet/lib/verify-url.sh` passed the live URL with HTTPS 200,
+the expected title, `lang=en`, one h1/main, complete alt text, and no errors.
+
+Live Lighthouse 13.0.1 mobile:
+
+- Performance 100; Accessibility 100; Best Practices 100; SEO 100.
+- FCP 0.95s; LCP 1.81s; TBT 32ms; CLS 0.
+- Transfer size 219,581 bytes. Synthetic Lighthouse does not report INP.
+
+## Deployment and identity
+
+The repository commits were pushed to `origin/main`. `dist/site/` was deployed
+to the existing `sf-markdown-pdf-code-proof` production Static Web App with SWA
+CLI 2.0.10. The custom domain returned HTTPS 200 with `Last-Modified: Sun, 30
+Aug 2026 00:39:08 GMT`.
+
+Fresh live responses matched the production build byte-for-byte for root,
+privacy, terms, 404, service worker, both hashed assets, artwork, favicon,
+robots, and sitemap. Selected SHA-256 values:
+
+```text
+6e4bcd9371d3b527607114fa7efad4cc90ba6d9b7901b50cc42180b48e4b46c3  index.html
+58641faf71547774e430ebf415d4feba526be0eb932c8bdbf307d7f7817bda10  assets/main-BhHUYMhv.js
+520c2d87abc0f97b82585058e37f69315b5238ead316e609469aca242cd3d38e  assets/main-CfYko4jh.css
+dce9eaa4fbbec4fdbdc06b56316de324e8be9baef41e4542c2401d4a9e243e01  sw.js
+9a408909f623902f82138e581ce8dc105ec7bbf88b6dab88714a5ee96439de42  code-proof-press.webp
+```
+
+HTTP redirects to HTTPS with 301. Unknown routes and the deployment control
+file return 404. HTML revalidates after 30 seconds, hashed assets are immutable
+for one year, `/sw.js` is `no-cache`, and a matching ETag returns 304. CSP is
+self-only and denies objects, foreign bases, and framing. HSTS, `nosniff`, the
+strict-origin referrer policy, and camera/microphone/geolocation denial are
+present.
+
+## Known gaps and next step
+
+No release-blocking gap is known. Pandoc is not installed in this worker, so a
+real built-in Pandoc render was not repeated; its missing-executable recovery
+and custom-renderer path are covered. Synthetic Lighthouse does not expose INP.
+
+The next step is independent verification of the pushed commit and live bytes.
