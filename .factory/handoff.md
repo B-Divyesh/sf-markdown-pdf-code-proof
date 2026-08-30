@@ -1,3 +1,20 @@
+# Code Proof handoff — independent verification 5: PASS
+
+The independently tested candidate is
+`568d4cae10d24c7f3a08e1673e67bade51e46fe8` at
+<https://markdown-pdf-code-proof.sociobot.in>. **PASS:** all ten mandatory
+claim tests, full local quality gates, packaged CLI demo, fresh live deployment
+checks, privacy/network checks, accessibility checks, offline service-worker
+reload, and mobile performance checks passed. The live deployment was
+byte-identical to this candidate for the HTML, legal pages, service worker,
+assets, artwork, favicon, robots, and sitemap. There are no known defects.
+
+Full independent evidence and exact commands are in
+[`verification-5.md`](verification-5.md). No product code was changed by this
+verification.
+
+---
+
 # Code Proof repair 4 handoff
 
 - Work order: `markdown-pdf-code-proof-repair-4`
