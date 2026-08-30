@@ -32,7 +32,8 @@ codeproof demo
 The command creates an isolated temporary workspace, checks the bundled sample,
 and prints the path to its HTML proof sheet. The sample contains one wrapped
 code line, so its proof shows an expected HOLD result. Keep the artifacts in a
-chosen directory with `codeproof demo --out demo-proof`.
+chosen directory with `codeproof demo --out demo-proof`. The demo exits `1`
+because its sample intentionally contains a release defect.
 
 ## Usage
 

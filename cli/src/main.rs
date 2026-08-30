@@ -158,7 +158,7 @@ fn demo(args: DemoArgs) -> Result<bool, String> {
     }
     println!("Sample workspace: {}", workspace.display());
     println!("Proof sheet: {}", proof_path.join("index.html").display());
-    Ok(true)
+    Ok(report.summary.passed)
 }
 
 fn check(args: CheckArgs) -> Result<bool, String> {

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-test('landing page is usable, quiet, and accessible', async ({ page }) => {
+test('@claim:private-site landing and sample stay local and leave no tracking data', async ({ page, context }) => {
   const errors: string[] = [];
   const origins = new Set<string>();
   page.on('console', (message) => {
@@ -14,13 +14,18 @@ test('landing page is usable, quiet, and accessible', async ({ page }) => {
   await expect(page).toHaveTitle(/Code Proof/);
   await expect(page.locator('main')).toBeVisible();
   await expect(page.locator('h1')).toHaveCount(1);
-  await expect(page.locator('h1')).toContainText('PDF bugs');
+  await expect(page.locator('h1')).toContainText('Catch PDF bugs before release');
+  await expect(page.getByRole('link', { name: /Try it with sample data/ })).toBeVisible();
   await expect(page.locator('img[alt]')).toHaveCount(1);
+  await page.getByRole('link', { name: /Try it with sample data/ }).click();
+  await expect(page.locator('#demo-status')).toContainText('Proof run complete', { timeout: 4000 });
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
   expect(errors).toEqual([]);
   expect([...origins]).toEqual(['http://127.0.0.1:4173']);
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
 });
 
 test('skip link is the first keyboard stop and reaches main content', async ({ page }) => {
@@ -31,18 +36,43 @@ test('skip link is the first keyboard stop and reaches main content', async ({ p
   await expect(page.locator('main')).toBeFocused();
 });
 
-test('recorded proof reports completion to assistive technology', async ({ page }) => {
-  await page.goto('/#demo');
-  await page.getByRole('button', { name: 'Replay proof run' }).click();
+test('sample demo is one click away and reports completion', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: /Try it with sample data/ }).click();
+  await expect(page).toHaveURL(/\?demo=1#demo$/);
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
   await expect(page.locator('#demo-status')).toContainText('Proof run complete', { timeout: 4000 });
-  await expect(page.getByText('HOLD — 184 pages')).toBeVisible();
+  await expect(page.getByText('DEMO HOLD — 1 expected defect found')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reset demo' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start for real' })).toBeVisible();
+});
+
+test('keyboard and reduced-motion users receive demo feedback', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/?demo=1#demo');
+  const reset = page.getByRole('button', { name: 'Reset demo' });
+  await reset.focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#demo-status')).toContainText('Proof run complete');
+  const motion = await page.evaluate(() => ({
+    animation: getComputedStyle(document.querySelector('.press-art')!).animationDuration,
+    transition: getComputedStyle(document.querySelector('.demo-line')!).transitionDuration,
+    scroll: getComputedStyle(document.documentElement).scrollBehavior
+  }));
+  expect(motion).toEqual({ animation: '1e-05s', transition: '1e-05s', scroll: 'auto' });
+});
+
+test('clipboard denial leaves the complete install command selectable', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Copy install command' }).click();
+  await expect(page.locator('#toast')).toContainText(/^(Copied:|Copy unavailable\. Select this command:) cargo install --path cli$/);
 });
 
 test('390px layout keeps primary paths available', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.getByRole('button', { name: /Copy install command/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Watch a proof run/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Try it with sample data/ })).toBeVisible();
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
 
@@ -55,6 +85,13 @@ test('390px layout keeps primary paths available', async ({ page }) => {
   const terms = await page.getByRole('link', { name: 'Terms' }).boundingBox();
   expect(terms?.width).toBeGreaterThanOrEqual(44);
   expect(terms?.height).toBeGreaterThanOrEqual(44);
+
+  const controls = page.locator('a:visible, button:visible');
+  for (let index = 0; index < await controls.count(); index += 1) {
+    const box = await controls.nth(index).boundingBox();
+    expect(box?.width, `control ${index} width`).toBeGreaterThanOrEqual(44);
+    expect(box?.height, `control ${index} height`).toBeGreaterThanOrEqual(44);
+  }
 });
 
 test('brand accessible name contains its visible label', async ({ page }) => {
@@ -62,20 +99,25 @@ test('brand accessible name contains its visible label', async ({ page }) => {
   await expect(page.getByRole('link', { name: /Code Proof release inspector \/ 0\.1/i })).toBeVisible();
 });
 
-test('installed shell stays useful offline', async ({ page, context }) => {
-  await page.goto('/');
-  await page.evaluate(() => navigator.serviceWorker.ready);
-  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
-  await expect.poll(() => page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.getRegistration();
-    return registration?.active?.state === 'activated';
-  })).toBe(true);
-  await page.reload();
-  await context.setOffline(true);
-  await page.reload();
-  await expect(page.locator('h1')).toContainText('PDF bugs');
-  await expect(page.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible();
-  await context.setOffline(false);
+test('@claim:offline-reload installed shell stays useful offline', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto('/');
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+    await expect.poll(() => page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      return registration?.active?.state === 'activated';
+    })).toBe(true);
+    await page.reload();
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator('h1')).toContainText('Catch PDF bugs before release');
+    await expect(page.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible();
+  } finally {
+    await context.close();
+  }
 });
 
 test('worker installs with production-only deployment files unavailable', async ({ page }) => {
@@ -93,5 +135,17 @@ for (const path of ['/privacy/', '/terms/']) {
     await page.goto(path);
     await expect(page.locator('main')).toBeVisible();
     await expect(page.locator('h1')).toHaveCount(1);
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
   });
 }
+
+test('unknown routes use the branded 404 document', async ({ page }) => {
+  const response = await page.goto('/missing-proof');
+  expect(response?.status()).toBe(404);
+  await expect(page).toHaveTitle('Page not found — Code Proof');
+  await expect(page.locator('h1')).toHaveText('This page was not found.');
+  await expect(page.getByRole('link', { name: 'Return home' })).toBeVisible();
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
+});

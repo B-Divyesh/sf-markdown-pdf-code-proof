@@ -26,21 +26,24 @@ const replay = document.querySelector<HTMLButtonElement>('#replay');
 const demoStatus = document.querySelector<HTMLParagraphElement>('#demo-status');
 const demoLines = [...document.querySelectorAll<HTMLElement>('.demo-line')];
 
-replay?.addEventListener('click', () => {
+const runDemo = () => {
   document.querySelector('.terminal')?.classList.add('replaying');
   demoLines.forEach((line) => line.classList.remove('revealed'));
-  replay.disabled = true;
+  if (replay) replay.disabled = true;
   if (demoStatus) demoStatus.textContent = 'Proof run started.';
   demoLines.forEach((line, index) => {
     window.setTimeout(() => {
       line.classList.add('revealed');
       if (index === demoLines.length - 1) {
-        replay.disabled = false;
-        if (demoStatus) demoStatus.textContent = 'Proof run complete: hold, with one error and one warning.';
+        if (replay) replay.disabled = false;
+        if (demoStatus) demoStatus.textContent = 'Proof run complete: hold, with one expected error.';
       }
     }, reduceMotion ? 0 : 250 * (index + 1));
   });
-});
+};
+
+replay?.addEventListener('click', runDemo);
+if (new URLSearchParams(window.location.search).get('demo') === '1') runDemo();
 
 const offline = document.querySelector<HTMLDivElement>('#offline-note');
 const syncNetwork = () => {

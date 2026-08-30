@@ -720,7 +720,7 @@ fn demo_uses_bundled_sample_data_and_writes_an_isolated_proof() {
         .unwrap()
         .args(["demo", "--out", workspace.to_str().unwrap()])
         .assert()
-        .success()
+        .code(1)
         .stdout(predicate::str::contains(
             "DEMO HOLD — 1 expected defect found",
         ))

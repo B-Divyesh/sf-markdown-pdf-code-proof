@@ -44,7 +44,13 @@ createServer(async (request, response) => {
     response.writeHead(200, headers);
     response.end(await readFile(file));
   } catch {
-    response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    response.end('Not found');
+    response.writeHead(404, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Security-Policy': policy,
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+    });
+    response.end(await readFile(join(root, '404.html')));
   }
 }).listen(port, '127.0.0.1');

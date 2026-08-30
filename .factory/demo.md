@@ -23,6 +23,7 @@ The source is `cli/examples/sample-manual.md`. The command writes a generated
 one-page PDF beside a self-contained `proof/index.html`. Its one-line JavaScript
 fence is deliberately split across two PDF baselines, so the demo shows an
 expected `code.flow-changed` HOLD.
+The command exits `1`, matching the normal release-defect contract.
 
 Without `--out`, each run creates a new persistent directory under the operating
 system temporary directory. The demo never reads user files, uses browser
