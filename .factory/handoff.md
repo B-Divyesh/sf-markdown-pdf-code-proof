@@ -1,49 +1,64 @@
-# Code Proof handoff — adversarial first-read review 1
+# Code Proof handoff — polish 1
 
-- Work order: `markdown-pdf-code-proof-review-1`
-- Candidate reviewed: `1ce079bd5ad09705a538c8252c1f3b3b7538834d`
-- Live URL: <https://markdown-pdf-code-proof.sociobot.in>
-- Result: **FAIL** — 31 findings (3 blocking, 14 high, 11 medium, 3 low)
+- Work order: `markdown-pdf-code-proof-polish-1`
+- Repair commit: `465a09672a0be0cfe2bac2ea495575b7c1a08baa`
+- Base reviewed: `ffa56a93f19ba5ded11254a2de448d1c6ad101fa`
+- Deployment target: <https://markdown-pdf-code-proof.sociobot.in>
 
-## What was done
+## Done
 
-Completed a cold live review at 390×844 and 1440×900, a sentence-by-sentence
-landing/README copy audit, one-click web and release-CLI demo checks, all ten
-listed claim commands, live request/storage/offline checks, route and link
-crawls, metadata and 404 checks, transient and settled Axe checks, and a
-from-scratch review of every historical verifier defect. No product code was
-changed.
+Closed all 31 findings in `review-1.md`. The repair fixes the inaccessible
+demo reveal; the demo lifecycle, title, focus, announcement, reset, exit, and
+history behavior; the cold install command; every listed or remaining public
+claim; mobile first-screen facts; first-read copy; metadata; social/touch
+assets; sitemap; 404; and consistent legal/footer links.
 
-The full findings and proposed fixes are in
-[`review-1.md`](review-1.md). The main blockers are a serious contrast failure
-during the demo reveal and demo entry/exit routing that does not update title,
-focus, or the demo query state. The copied install command also fails outside
-a checkout while the repository has no downloadable release. Fourteen public
-claims are also unlisted or under-tested.
+The CLI now has direct regressions for fail-closed sandbox setup and renderer
+timeouts. The claims contract grew to cover all remaining public promises,
+including Git installation, Rust 1.88 compilation, reports, exits, licenses,
+privacy, and sandbox behavior. `polish-1.md` maps each review ID to its change
+and evidence.
 
-## Verification run
+## Verified
 
-All ten `.factory/claims.json` commands passed individually. These additional
-checks passed:
+Fresh clone: `/tmp/codeproof-clean.TVfVTh/repo` at `465a096`.
 
 ```sh
 npm ci
+# every command in .factory/claims.json, individually
 npm test
+npm run typecheck
+npm run lint
 npm run build
-cargo +1.88.0 check --workspace --locked
-/opt/fleet/lib/verify-url.sh https://markdown-pdf-code-proof.sociobot.in /tmp/code-proof-review/verify-url
+cargo package --manifest-path cli/Cargo.toml --locked
 ```
 
-`npm test` passed 3 Rust unit tests, 18 CLI integration tests, and 12
-Playwright tests. The build produced `target/release/codeproof` and
-`dist/site/`. The live root HTML, JavaScript, and CSS matched the local build
-byte-for-byte. The release CLI demo was also run from a fresh temporary working
-directory and returned the intentional HOLD exit 1.
+Results: all 20 claim entries passed; `npm test` passed 3 unit tests, 21 CLI
+integration tests, and 12 Playwright tests. The production build is 3.00 KB JS
+(1.29 KB gzip), 11.25 KB CSS (3.36 KB gzip), no font payload, 206 KB hero
+WebP, 230 KB social JPEG, and 57 KB touch icon. The public clean install test
+installed `codeproof 0.1.0` from Git commit `465a0967` into an empty temporary
+root and ran `codeproof --version`.
 
-## What remains
+Mobile evidence: `evidence/landing-mobile.png` and `evidence/demo-mobile.png`.
+The browser suite includes immediate-transition Axe checks, 390×844 layout,
+keyboard focus, Back/Forward route behavior, privacy request/storage capture,
+and a dedicated offline browser context.
 
-Resolve every finding in `review-1.md`, add transition-time accessibility and
-route-state regressions, register or remove every unlisted claim, then repeat
-the entire review rather than checking only the diff. The existing test suite
-passes but does not exercise the failing demo transition or the full public
-claim surface.
+## Deployment status
+
+The repair commit was pushed to `origin/main`. No deploy command or credential
+is present in this work order or repository; per repository rules, deployment
+infrastructure is factory-owned. A cold live probe after the push still served
+the previous artifact (`Last-Modified: 2026-08-30 00:47:00 UTC`, ETag
+`"73833608"`) and did not contain the new Git install command or social asset.
+Do not treat the current live URL as verification of `465a096` until the static
+factory deployment consumes the pushed commit. Local build and clean-clone
+evidence are complete.
+
+## Run and publish
+
+Run `npm ci && npm test && npm run build`. Deploy `dist/site/` with the
+factory’s configured static deployment. Publish the CLI only through the
+factory registry workflow after `cargo package --manifest-path cli/Cargo.toml
+--locked`; do not publish from this repository.
