@@ -25,4 +25,5 @@ const incompatible = metadata.packages
 if (incompatible.length > 0) {
   throw new Error(`Declared Rust ${declared} is lower than locked dependencies:\n${incompatible.join('\n')}`);
 }
-console.log(`MSRV contract holds: Rust ${declared} covers every locked dependency.`);
+execFileSync('cargo', [`+${declared}`, 'check', '--workspace', '--locked'], { stdio: 'inherit' });
+console.log(`MSRV contract holds: Rust ${declared} compiles every locked dependency.`);

@@ -18,6 +18,8 @@ test('@claim:private-site landing and sample stay local and leave no tracking da
   await expect(page.getByRole('link', { name: /Try it with sample data/ })).toBeVisible();
   await expect(page.locator('img[alt]')).toHaveCount(1);
   await page.getByRole('link', { name: /Try it with sample data/ }).click();
+  const startingResults = await new AxeBuilder({ page }).analyze();
+  expect(startingResults.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
   await expect(page.locator('#demo-status')).toContainText('Proof run complete', { timeout: 4000 });
 
   const results = await new AxeBuilder({ page }).analyze();
@@ -40,11 +42,23 @@ test('sample demo is one click away and reports completion', async ({ page }) =>
   await page.goto('/');
   await page.getByRole('link', { name: /Try it with sample data/ }).click();
   await expect(page).toHaveURL(/\?demo=1#demo$/);
+  await expect(page).toHaveTitle('Demo — Code Proof');
   await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+  await expect(page.locator('#demo-title')).toBeFocused();
   await expect(page.locator('#demo-status')).toContainText('Proof run complete', { timeout: 4000 });
-  await expect(page.getByText('DEMO HOLD — 1 expected defect found')).toBeVisible();
+  await expect(page.getByText('DEMO HOLD — do not release — 1 expected defect found')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reset demo' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Start for real' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View install commands' })).toBeVisible();
+  await page.getByRole('link', { name: 'View install commands' }).click();
+  await expect(page).toHaveURL(/\/#install$/);
+  await expect(page).toHaveTitle('Code Proof — inspect Markdown PDFs before release');
+  await expect(page.locator('#demo-banner')).toBeHidden();
+  await expect(page.locator('#install-title')).toBeFocused();
+  await page.goBack();
+  await expect(page).toHaveURL(/\?demo=1#demo$/);
+  await expect(page.locator('#demo-title')).toBeFocused();
+  await page.goForward();
+  await expect(page.locator('#install-title')).toBeFocused();
 });
 
 test('keyboard and reduced-motion users receive demo feedback', async ({ page }) => {
@@ -64,17 +78,21 @@ test('keyboard and reduced-motion users receive demo feedback', async ({ page })
 
 test('clipboard denial leaves the complete install command selectable', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Copy install command' }).click();
-  await expect(page.locator('#toast')).toContainText(/^(Copied:|Copy unavailable\. Select this command:) cargo install --path cli$/);
+  await page.locator('.hero').getByRole('button', { name: 'Copy install command' }).click();
+  await expect(page.locator('#toast')).toContainText(/^(Copied:|Copy unavailable\. Select this command:) cargo install --git https:\/\/github\.com\/B-Divyesh\/sf-markdown-pdf-code-proof\.git --locked codeproof$/);
 });
 
 test('390px layout keeps primary paths available', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await expect(page.getByRole('button', { name: /Copy install command/ })).toBeVisible();
+  await expect(page.locator('.hero').getByRole('button', { name: /Copy install command/ })).toBeVisible();
   await expect(page.getByRole('link', { name: /Try it with sample data/ })).toBeVisible();
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
+  for (const label of ['Sample included', 'Site privacy', 'MIT license']) {
+    const box = await page.getByText(label, { exact: true }).boundingBox();
+    expect(box?.y, `${label} stays in the first viewport`).toBeLessThan(844);
+  }
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
@@ -127,7 +145,7 @@ test('worker installs with production-only deployment files unavailable', async 
   const shell = await page.evaluate(async () => (await fetch('/sw.js')).text());
   expect(shell).not.toContain('staticwebapp.config.json');
   const caches = await page.evaluate(async () => (await caches.keys()).filter((name) => name.startsWith('code-proof-')));
-  expect(caches).toEqual(['code-proof-v3']);
+  expect(caches).toEqual(['code-proof-v4']);
   const update = await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.getRegistration();
     await registration?.update();

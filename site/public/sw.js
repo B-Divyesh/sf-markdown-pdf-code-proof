@@ -1,4 +1,4 @@
-const CACHE = 'code-proof-v3';
+const CACHE = 'code-proof-v4';
 const SHELL = ['/', '/privacy/', '/terms/', '/code-proof-press.webp', '/proof-mark.svg'];
 self.addEventListener('install', (event) => event.waitUntil(
   caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())

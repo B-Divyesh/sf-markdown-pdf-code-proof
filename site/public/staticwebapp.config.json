@@ -8,6 +8,8 @@
   "routes": [
     { "route": "/assets/*", "headers": { "Cache-Control": "public, max-age=31536000, immutable" } },
     { "route": "/*.webp", "headers": { "Cache-Control": "public, max-age=31536000, immutable" } },
+    { "route": "/*.jpg", "headers": { "Cache-Control": "public, max-age=31536000, immutable" } },
+    { "route": "/*.png", "headers": { "Cache-Control": "public, max-age=31536000, immutable" } },
     { "route": "/sw.js", "headers": { "Cache-Control": "no-cache" } }
   ],
   "responseOverrides": {

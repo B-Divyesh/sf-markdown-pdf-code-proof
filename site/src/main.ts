@@ -2,6 +2,11 @@ import './style.css';
 
 const toast = document.querySelector<HTMLDivElement>('#toast');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+const demoBanner = document.querySelector<HTMLDivElement>('#demo-banner');
+const demoTitle = document.querySelector<HTMLElement>('#demo-title');
+const installTitle = document.querySelector<HTMLElement>('#install-title');
+const routeStatus = document.querySelector<HTMLParagraphElement>('#route-status');
 
 document.querySelectorAll<HTMLButtonElement>('.copy-button').forEach((button) => {
   button.addEventListener('click', async () => {
@@ -14,7 +19,7 @@ document.querySelectorAll<HTMLButtonElement>('.copy-button').forEach((button) =>
       if (toast) toast.textContent = `Copied: ${value}`;
       window.setTimeout(() => {
         if (label) label.textContent = 'Copy install command';
-        else button.textContent = 'Copy';
+        else button.textContent = button.dataset.defaultLabel ?? 'Copy command';
       }, 1800);
     } catch {
       if (toast) toast.textContent = `Copy unavailable. Select this command: ${value}`;
@@ -43,7 +48,34 @@ const runDemo = () => {
 };
 
 replay?.addEventListener('click', runDemo);
-if (new URLSearchParams(window.location.search).get('demo') === '1') runDemo();
+
+const updateRoute = (moveFocus: boolean) => {
+  const inDemo = new URLSearchParams(window.location.search).get('demo') === '1';
+  if (demoBanner) demoBanner.hidden = !inDemo;
+  if (inDemo) {
+    document.title = 'Demo — Code Proof';
+    if (canonical) canonical.href = `${window.location.origin}/?demo=1`;
+    runDemo();
+    if (moveFocus) {
+      window.requestAnimationFrame(() => demoTitle?.focus());
+      if (routeStatus) routeStatus.textContent = 'Demo opened. Sample data is active and nothing is saved.';
+    }
+    return;
+  }
+
+  document.title = 'Code Proof — inspect Markdown PDFs before release';
+  if (canonical) canonical.href = `${window.location.origin}/`;
+  if (window.location.hash === '#install' && moveFocus) {
+    window.requestAnimationFrame(() => installTitle?.focus());
+    if (routeStatus) routeStatus.textContent = 'Install commands opened.';
+  }
+};
+
+if (demoBanner) {
+  updateRoute(true);
+  window.addEventListener('popstate', () => updateRoute(true));
+  window.addEventListener('hashchange', () => updateRoute(true));
+}
 
 const offline = document.querySelector<HTMLDivElement>('#offline-note');
 const syncNetwork = () => {

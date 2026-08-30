@@ -72,5 +72,10 @@ rules.
   one overflowing line and one linked anchor, tactile halftone and paper grain,
   landscape 4:3 composition, no readable words, no logos, no watermark.”
   License: project-owned generated asset under the repository MIT license.
+- `site/public/code-proof-social.jpg` and `site/public/apple-touch-icon.png`:
+  deterministic crops of `code-proof-press.webp` made in this repository for
+  the required 1200×630 social card and 180×180 touch icon. They carry the
+  same project-owned provenance and MIT license; no third-party artwork or
+  remote asset is loaded.
 - Registration marks, checker icons, and page fragments elsewhere are original
   CSS/SVG geometry drawn in-repository; they do not reproduce an icon library.

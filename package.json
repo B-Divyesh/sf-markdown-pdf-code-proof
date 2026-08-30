@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "test": "npm run test:msrv && cargo test --workspace && npm run test:site",
+    "test": "npm run test:msrv && cargo test --workspace && npm run test:site && npm run test:license",
     "test:msrv": "node scripts/check-msrv.mjs",
     "test:site": "npm run build:site && playwright test",
+    "test:install": "node scripts/clean-install.mjs",
+    "test:license": "node scripts/license-test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",
     "build": "npm run build:cli && npm run build:site",

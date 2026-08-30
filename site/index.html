@@ -3,17 +3,22 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="Code Proof catches broken code blocks, overflow, and internal links before your Markdown PDF ships.">
+    <meta name="description" content="Check a finished Markdown PDF for broken code, page overflow, and internal links before release.">
     <meta name="theme-color" content="#f3e9d2">
     <title>Code Proof — inspect Markdown PDFs before release</title>
     <link rel="canonical" href="https://markdown-pdf-code-proof.sociobot.in/">
     <link rel="icon" href="/proof-mark.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/proof-mark.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Code Proof — inspect Markdown PDFs before release">
-    <meta property="og:description" content="Catch broken code flow, page overflow, and internal links in a finished Markdown PDF.">
-    <meta property="og:image" content="https://markdown-pdf-code-proof.sociobot.in/code-proof-press.webp">
+    <meta property="og:description" content="Check a finished Markdown PDF for broken code, page overflow, and internal links before release.">
+    <meta property="og:image" content="https://markdown-pdf-code-proof.sociobot.in/code-proof-social.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Code Proof — inspect Markdown PDFs before release">
+    <meta name="twitter:description" content="Check a finished Markdown PDF for broken code, page overflow, and internal links before release.">
+    <meta name="twitter:image" content="https://markdown-pdf-code-proof.sociobot.in/code-proof-social.jpg">
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -37,13 +42,13 @@
           <p class="lede">For engineers and technical writers, Code Proof catches broken code, page overflow, and internal links in the final PDF.</p>
           <div class="hero-actions">
             <a class="stamp-button demo-trigger" href="/?demo=1#demo">Try it with sample data <span aria-hidden="true">↓</span></a>
-            <span class="action-note">See the bundled HOLD case.</span>
-            <button class="text-button copy-button" type="button" data-copy="cargo install --path cli"><span class="button-label">Copy install command</span></button>
+            <span class="action-note">See a sample PDF defect and failed check.</span>
+            <button class="text-button copy-button" type="button" data-copy="cargo install --git https://github.com/B-Divyesh/sf-markdown-pdf-code-proof.git --locked codeproof"><span class="button-label">Copy install command</span></button>
           </div>
           <ul class="quick-facts" aria-label="Product facts">
-            <li><strong>Runs locally</strong><span>Your files stay on this device</span></li>
-            <li><strong>Network blocked</strong><span>Linux renderers run without sockets</span></li>
-            <li><strong>Free</strong><span>MIT licensed</span></li>
+            <li><strong>Sample included</strong><span>No files needed to try it</span></li>
+            <li><strong>Site privacy</strong><span>No tracking data</span></li>
+            <li><strong>MIT license</strong><span>Read the license</span></li>
           </ul>
         </div>
         <figure class="press-art">
@@ -60,29 +65,29 @@
         <div class="section-intro">
           <p class="eyebrow">How it works</p>
           <h2 id="workflow-title">Check the source against the PDF.</h2>
-          <p>Code Proof compares the source contract with the fixed PDF and leaves a proof sheet your team can review in a browser.</p>
+          <p>Code Proof compares your Markdown with the finished PDF. It writes an HTML proof sheet for review.</p>
         </div>
         <ol class="galley">
-          <li><span class="number">01</span><div><h3>Render the real job</h3><p>Use the built-in Pandoc adapter, a custom command, or an already-built PDF. Arguments never pass through a shell.</p></div></li>
-          <li><span class="number">02</span><div><h3>Inspect the fixed artifact</h3><p>Read PDF annotations, content streams, color operations, and painted text bounds. Match code lines back to their source fence.</p></div></li>
-          <li><span class="number">03</span><div><h3>Hold or release</h3><p>Open the tactile HTML proof, archive JSON in CI, and use stable exit codes to stop a broken manual.</p></div></li>
+          <li><span class="number">01</span><div><h3>Create or choose the PDF</h3><p>Check an existing PDF, or use a custom renderer command. Renderer arguments never pass through a shell.</p></div></li>
+          <li><span class="number">02</span><div><h3>Check the finished PDF</h3><p>Check links, code colors, and text that runs outside the page. Match each code fence with the PDF.</p></div></li>
+          <li><span class="number">03</span><div><h3>Review the result</h3><p>Open the HTML proof sheet, save a JSON report in CI, and use exit codes to stop a broken release.</p></div></li>
         </ol>
       </section>
 
       <section class="demo" id="demo" aria-labelledby="demo-title">
-        <div class="demo-banner" role="status"><span>Demo — sample data, nothing is saved</span><span><button class="replay" id="replay" type="button">Reset demo</button><a href="#install">Start for real</a></span></div>
+        <div class="demo-banner" id="demo-banner" role="status" hidden><span>Demo — sample data, nothing is saved</span><span><button class="replay" id="replay" type="button">Reset demo</button><a href="/#install">View install commands</a></span></div>
         <div class="demo-heading">
-          <div><p class="eyebrow">Sample check</p><h2 id="demo-title">See what a release check returns.</h2></div>
+          <div><p class="eyebrow">Sample check</p><h2 id="demo-title" tabindex="-1">Sample HOLD report</h2></div>
         </div>
         <div class="terminal" aria-label="Recorded Code Proof terminal output">
           <div class="terminal-bar"><span>codeproof demo</span><span>local sample</span></div>
           <pre tabindex="0"><code><span class="prompt">$</span> codeproof demo
 
-<strong class="demo-line" data-step="1">DEMO HOLD — 1 expected defect found</strong>
+<strong class="demo-line" data-step="1">DEMO HOLD — do not release — 1 expected defect found</strong>
 <span class="line demo-line defect" data-step="2">ERROR  [code.flow-changed] source line 7</span>
 <span class="line demo-line" data-step="3">Sample workspace: /tmp/codeproof-demo-…</span>
 <span class="line demo-line" data-step="4">Proof sheet: /tmp/codeproof-demo-…/proof/index.html</span></code></pre>
-          <div class="terminal-footer"><span>Expected exit 1</span><span>No files uploaded</span></div>
+          <div class="terminal-footer"><span>Expected exit 1</span><span>Bundled sample only</span></div>
         </div>
         <p class="sr-only" id="demo-status" aria-live="polite"></p>
       </section>
@@ -93,9 +98,9 @@
           <h2 id="checks-title">Find release-breaking PDF defects.</h2>
         </div>
         <div class="check-list">
-          <article><span class="check-mark" aria-hidden="true">↔</span><div><h3>Code flow</h3><p>Flags source lines that disappear or stop following their original fenced order.</p></div><code>code.*</code></article>
-          <article><span class="check-mark" aria-hidden="true">⌜</span><div><h3>Page bounds</h3><p>Estimates painted text width from PDF content operations and reports the page.</p></div><code>geometry.*</code></article>
-          <article><span class="check-mark" aria-hidden="true">#</span><div><h3>Internal links</h3><p>Matches every Markdown fragment to its PDF named destination and confirms that destination resolves to a real page.</p></div><code>link.*</code></article>
+          <article><span class="check-mark" aria-hidden="true">↔</span><div><h3>Code flow</h3><p>Flags code fence lines that disappear, merge, or wrap in the PDF.</p></div><code>code.*</code></article>
+          <article><span class="check-mark" aria-hidden="true">⌜</span><div><h3>Page bounds</h3><p>Flags text that runs outside a page edge.</p></div><code>geometry.*</code></article>
+          <article><span class="check-mark" aria-hidden="true">#</span><div><h3>Internal links</h3><p>Flags Markdown fragments with a missing or wrong PDF destination.</p></div><code>link.*</code></article>
           <article><span class="check-mark" aria-hidden="true">◐</span><div><h3>Syntax color</h3><p>Warns when language-tagged blocks produce no detectable non-default PDF color.</p></div><code>highlight.*</code></article>
         </div>
       </section>
@@ -103,30 +108,31 @@
       <section class="install" id="install" aria-labelledby="install-title">
         <div class="install-copy">
           <p class="eyebrow">Install</p>
-          <h2 id="install-title">Add Code Proof to your build.</h2>
-          <p>Build the 0.1 binary with Rust, then point it at a source/PDF pair. No account, upload, daemon, or telemetry.</p>
-          <a class="text-link" href="https://github.com/B-Divyesh/sf-markdown-pdf-code-proof#usage">Read the full CLI reference <span aria-hidden="true">↗</span></a>
+          <h2 id="install-title" tabindex="-1">Add Code Proof to your build.</h2>
+          <p>Install from the public repository with Rust 1.88 or newer. Then check a Markdown and PDF pair.</p>
+          <a class="text-link" href="https://github.com/B-Divyesh/sf-markdown-pdf-code-proof#usage" aria-label="Read the full CLI reference (external site)">Read the full CLI reference <span aria-hidden="true">↗</span></a>
         </div>
         <div class="commands">
-          <div class="command"><span>01 / build</span><code tabindex="0">cargo install --path cli</code><button type="button" class="copy-button" data-copy="cargo install --path cli" aria-label="Copy build command">Copy</button></div>
-          <div class="command"><span>02 / inspect</span><code tabindex="0">codeproof check manual.md --pdf manual.pdf</code><button type="button" class="copy-button" data-copy="codeproof check manual.md --pdf manual.pdf" aria-label="Copy inspect command">Copy</button></div>
-          <div class="command"><span>03 / CI</span><code tabindex="0">codeproof check manual.md --pdf manual.pdf --json</code><button type="button" class="copy-button" data-copy="codeproof check manual.md --pdf manual.pdf --json" aria-label="Copy CI command">Copy</button></div>
+          <div class="command"><span>01 / install</span><code tabindex="0">cargo install --git https://github.com/B-Divyesh/sf-markdown-pdf-code-proof.git --locked codeproof</code><button type="button" class="copy-button" data-default-label="Copy install command" data-copy="cargo install --git https://github.com/B-Divyesh/sf-markdown-pdf-code-proof.git --locked codeproof" aria-label="Copy install command">Copy install command</button></div>
+          <div class="command"><span>02 / check</span><code tabindex="0">codeproof check manual.md --pdf manual.pdf</code><button type="button" class="copy-button" data-default-label="Copy check command" data-copy="codeproof check manual.md --pdf manual.pdf" aria-label="Copy check command">Copy check command</button></div>
+          <div class="command"><span>03 / CI</span><code tabindex="0">codeproof check manual.md --pdf manual.pdf --json</code><button type="button" class="copy-button" data-default-label="Copy CI command" data-copy="codeproof check manual.md --pdf manual.pdf --json" aria-label="Copy CI command">Copy CI command</button></div>
         </div>
       </section>
 
       <section class="safety" aria-labelledby="safety-title">
           <p class="eyebrow">Renderer safety</p>
-          <h2 id="safety-title">Renderers run in a locked-down process.</h2>
-          <p>On Linux, Code Proof blocks renderer network access and limits file access. It refuses to render when those controls are unavailable.</p>
+          <h2 id="safety-title">Linux renderer commands cannot use network sockets.</h2>
+          <p>Code Proof runs a renderer only after Linux sandbox setup succeeds. Checking an existing PDF does not start a renderer.</p>
       </section>
     </main>
 
     <footer>
-      <div><strong>Code Proof</strong><span>Inspect Markdown PDFs before release.</span><small>Built by Param Factory · v0.1.0</small></div>
-      <nav aria-label="Footer navigation"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://github.com/B-Divyesh/sf-markdown-pdf-code-proof">GitHub</a></nav>
+      <div><strong>Code Proof</strong><span>Check Markdown PDFs before release.</span><small>Built by Param Factory · v0.1.0</small></div>
+      <nav aria-label="Footer navigation"><a href="/">Home</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://github.com/B-Divyesh/sf-markdown-pdf-code-proof" aria-label="GitHub (external site)">GitHub ↗</a></nav>
     </footer>
     <div class="offline-note" id="offline-note" role="status" hidden>Offline. The docs and recorded proof still work.</div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <p class="sr-only" id="route-status" aria-live="polite"></p>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

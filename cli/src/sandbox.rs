@@ -92,6 +92,11 @@ pub struct Sandbox {
 #[cfg(target_os = "linux")]
 impl Sandbox {
     pub fn prepare(source_parent: &Path, workspace: &Path, program: &Path) -> Result<Self, String> {
+        if std::env::var_os("CODEPROOF_TEST_FORCE_SANDBOX_FAILURE").is_some() {
+            return Err(
+                "renderer sandbox setup was deliberately refused for this verification".into(),
+            );
+        }
         let mut permissions = BTreeMap::<PathBuf, u64>::new();
         add(&mut permissions, source_parent, LANDLOCK_READ_ONLY);
         add(&mut permissions, workspace, LANDLOCK_ALL_ACCESS);

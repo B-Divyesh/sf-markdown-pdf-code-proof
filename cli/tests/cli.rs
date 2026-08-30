@@ -539,6 +539,119 @@ fn custom_renderer_runs_without_a_shell_and_is_checked() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn renderer_refuses_to_start_when_sandbox_setup_fails() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let renderer = temp.path().join("renderer");
+    let marker = temp.path().join("renderer-started");
+    fs::write(&markdown, "# Manual\n").unwrap();
+    fs::write(
+        &renderer,
+        format!("#!/bin/sh\ntouch '{}'\n", marker.display()),
+    )
+    .unwrap();
+    fs::set_permissions(&renderer, fs::Permissions::from_mode(0o755)).unwrap();
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .env("CODEPROOF_TEST_FORCE_SANDBOX_FAILURE", "1")
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--engine-command",
+            &format!("{} {{input}} {{output}}", renderer.display()),
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "sandbox setup was deliberately refused",
+        ));
+    assert!(
+        !marker.exists(),
+        "renderer ran despite failed sandbox setup"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn renderer_deadline_stops_a_long_running_command() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    fs::write(&markdown, "# Manual\n").unwrap();
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--engine-command",
+            "/bin/sh -c 'sleep 2' {input} {output}",
+            "--timeout",
+            "1",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "renderer exceeded the 1 second timeout",
+        ));
+}
+
+#[test]
+fn json_report_and_exit_codes_are_observable() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let valid_pdf = temp.path().join("valid.pdf");
+    let invalid_pdf = temp.path().join("invalid.pdf");
+    fs::write(
+        &markdown,
+        "# Guide\n[Jump](#guide)\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    fixture_pdf(&valid_pdf, &["guide"], &["guide"]);
+    code_flow_pdf(&invalid_pdf, &[("fn other() {}", 700)]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            valid_pdf.to_str().unwrap(),
+            "--out",
+            temp.path().join("pass-proof").to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(0)
+        .stdout(predicate::str::contains("\"passed\": true"));
+    assert!(temp.path().join("pass-proof/index.html").is_file());
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            invalid_pdf.to_str().unwrap(),
+            "--out",
+            temp.path().join("hold-proof").to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("\"passed\": false"));
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args(["check", "missing.md", "--pdf", valid_pdf.to_str().unwrap()])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("Markdown source not found"));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn renderer_sandbox_denies_network_connections() {
     if std::process::Command::new("curl")
         .arg("--version")

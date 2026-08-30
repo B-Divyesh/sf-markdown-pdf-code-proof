@@ -16,6 +16,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
@@ -90,8 +91,8 @@ h3 { font: 700 23px/1.2 var(--display); margin: 0 0 8px; }
 .terminal-bar, .terminal-footer { display: flex; justify-content: space-between; padding: 12px 16px; background: var(--sheet); color: var(--ink); font: 800 11px var(--mono); text-transform: uppercase; }
 .terminal pre { min-height: 340px; margin: 0; padding: 32px; overflow-x: auto; font: 15px/1.8 var(--mono); }
 .prompt { color: #80aef3; }.defect { color: #ff8a7e; }.warning { color: #f7c66a; }
-.demo-line { transition: opacity .2s, transform .2s; }
-.terminal.replaying .demo-line:not(.revealed) { opacity: 0; transform: translateY(4px); }
+.demo-line { transition: transform .2s; }
+.terminal.replaying .demo-line:not(.revealed) { visibility: hidden; transform: translateY(4px); }
 
 .checks .section-intro { grid-template-columns: .6fr 1.7fr; }
 .check-list { border-top: 3px solid; }
@@ -102,10 +103,10 @@ h3 { font: 700 23px/1.2 var(--display); margin: 0 0 8px; }
 .install { display: grid; grid-template-columns: .8fr 1.2fr; gap: 80px; border-top: 3px solid; }
 .install-copy p:not(.eyebrow) { color: var(--muted); max-width: 46ch; margin: 24px 0; }
 .commands { border-top: 3px solid; }
-.command { display: grid; grid-template-columns: 90px minmax(0, 1fr) 72px; align-items: center; border-bottom: 2px solid; min-height: 86px; }
+.command { display: grid; grid-template-columns: 90px minmax(0, 1fr) 152px; align-items: center; gap: 12px; border-bottom: 2px solid; min-height: 86px; }
 .command > span { color: var(--muted); font: 800 10px var(--mono); text-transform: uppercase; }
 .command code { overflow-x: auto; padding: 14px 0; white-space: nowrap; font: 700 13px var(--mono); }
-.command button { min-width: 64px; min-height: 44px; border: 2px solid var(--ink); background: var(--sheet); cursor: pointer; font: 800 12px var(--mono); }
+.command button { min-width: 144px; min-height: 44px; padding: 8px; border: 2px solid var(--ink); background: var(--sheet); cursor: pointer; font: 800 11px/1.15 var(--mono); }
 .command button:hover { background: var(--blue); color: white; }
 .safety { max-width: 920px; margin: 0 0 112px auto; padding: 48px; border: 3px solid; background: var(--sheet); box-shadow: 8px 8px 0 var(--red); }
 .safety h2 { font-size: clamp(34px, 4vw, 52px); }
@@ -133,10 +134,15 @@ footer strong, footer span, footer small { display: block; } footer span, footer
 @media (max-width: 650px) {
   .masthead, main, footer { width: min(100% - 32px, 1240px); }
   .masthead { min-height: 72px; }.masthead nav a:not(:last-child) { display: none; }
-  .hero { min-height: 0; padding: 48px 0 72px; gap: 52px; }
-  h1 { font-size: clamp(50px, 15vw, 68px); }
-  .lede { font-size: 17px; }
-  .quick-facts { grid-template-columns: 1fr; gap: 12px; }
+  .hero { min-height: 0; padding: 32px 0 48px; gap: 52px; }
+  .kicker { margin-bottom: 12px; }
+  h1 { font-size: clamp(46px, 13vw, 62px); }
+  .lede { margin: 20px 0; font-size: 16px; }
+  .hero-actions { gap: 12px; }
+  .action-note { max-width: 19ch; font-size: 13px; }
+  .quick-facts { grid-template-columns: repeat(3, 1fr); gap: 8px; padding-top: 20px; margin-top: 24px; }
+  .quick-facts strong { font-size: 10px; }
+  .quick-facts span { font-size: 11px; line-height: 1.3; }
   .contract-strip { margin-inline: -16px; overflow-x: auto; justify-content: start; white-space: nowrap; }
   .workflow, .checks, .install { padding: 80px 0; }
   .checks .section-intro { grid-template-columns: 1fr; }
@@ -145,7 +151,7 @@ footer strong, footer span, footer small { display: block; } footer span, footer
   .demo-banner { align-items: start; flex-direction: column; }
   .terminal pre { min-height: 420px; padding: 24px 16px; font-size: 12px; }
   .check-list article { grid-template-columns: 52px 1fr; align-items: start; }.check-list code { grid-column: 2; }
-  .command { grid-template-columns: 1fr 72px; padding: 12px 0; }.command > span { grid-column: 1 / -1; }.command code { padding-right: 12px; }
+  .command { grid-template-columns: minmax(0, 1fr) 132px; gap: 8px; padding: 12px 0; }.command > span { grid-column: 1 / -1; }.command code { padding-right: 8px; }.command button { min-width: 132px; font-size: 10px; }
   .safety { padding: 28px 24px; margin-bottom: 80px; }
   footer { align-items: start; flex-direction: column; justify-content: center; gap: 24px; } footer nav { flex-wrap: wrap; }
   .legal { padding: 72px 0 88px; }.legal section { grid-template-columns: 1fr; gap: 14px; }

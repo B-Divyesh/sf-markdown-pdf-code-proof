@@ -10,6 +10,8 @@ const types = {
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
   '.xml': 'text/xml; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8'
 };
