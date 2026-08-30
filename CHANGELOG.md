@@ -2,6 +2,10 @@
 
 ## 0.1.0 — unreleased repair
 
+- Reject one-line code fences painted across multiple PDF baselines.
+- Check transformed text against the left, right, top, and bottom CropBox or
+  MediaBox edges.
+- Add `codeproof demo` with bundled sample data and an isolated proof workspace.
 - Sandbox renderer subprocesses with Linux Landlock filesystem allowlists and
   seccomp network denial; refuse renderer execution without those controls.
 - Make service-worker precaching production-safe by excluding Static Web Apps'

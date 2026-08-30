@@ -56,15 +56,22 @@ pub fn inspect_pdf(
         if let Ok(bytes) = document.get_page_content(*id) {
             if let Ok(content) = Content::decode(&bytes) {
                 visual_lines.extend(extract_visual_lines(&document, *id, &content));
-                let (colored, overflow) =
-                    inspect_operations(&content, page_width(&document, *id), overflow_tolerance);
+                let (colored, overflows) =
+                    inspect_operations(&content, page_box(&document, *id), overflow_tolerance);
                 has_color |= colored;
-                if let Some((x, width)) = overflow {
+                for overflow in overflows {
                     findings.push(Finding::new(
                         "geometry.text-overflow",
                         Severity::Error,
-                        format!("Painted text reaches x={x:.1}pt beyond the {width:.1}pt page boundary"),
-                        "Wrap or shorten the affected line, then render again.",
+                        format!(
+                            "Painted text reaches {}={:.1}pt past the {} page boundary at {}={:.1}pt",
+                            overflow.axis,
+                            overflow.coordinate,
+                            overflow.side,
+                            overflow.axis,
+                            overflow.boundary
+                        ),
+                        "Move, wrap, or shorten the affected text, then render again.",
                         None,
                     ).on_page(*number));
                 }
@@ -100,7 +107,7 @@ pub fn inspect_pdf(
                 format!("First missing line: {}", truncate(missing[0], 90)),
                 Some(fence.line),
             ));
-        } else if useful.len() > 1 && !preserves_line_flow(&useful, &visual_lines) {
+        } else if !useful.is_empty() && !preserves_line_flow(&useful, &visual_lines) {
             findings.push(Finding::new(
                 "code.flow-changed",
                 Severity::Error,
@@ -492,18 +499,72 @@ fn deref_dict<'a>(document: &'a Document, object: &'a Object) -> Option<&'a Dict
     }
 }
 
-fn page_width(document: &Document, page_id: ObjectId) -> f64 {
-    let Ok(page) = document.get_dictionary(page_id) else {
-        return 612.0;
-    };
-    let box_value = page.get(b"CropBox").or_else(|_| page.get(b"MediaBox"));
-    let Ok(array) = box_value.and_then(Object::as_array) else {
-        return 612.0;
-    };
-    if array.len() != 4 {
-        return 612.0;
+#[derive(Clone, Copy, Debug)]
+struct PageBox {
+    left: f64,
+    bottom: f64,
+    right: f64,
+    top: f64,
+}
+
+impl Default for PageBox {
+    fn default() -> Self {
+        Self {
+            left: 0.0,
+            bottom: 0.0,
+            right: 612.0,
+            top: 792.0,
+        }
     }
-    number(&array[2]) - number(&array[0])
+}
+
+fn page_box(document: &Document, page_id: ObjectId) -> PageBox {
+    let mut current = Some(page_id);
+    let mut visited = HashSet::new();
+    let mut crop_box = None;
+    let mut media_box = None;
+
+    while let Some(id) = current {
+        if !visited.insert(id) || visited.len() > 32 {
+            break;
+        }
+        let Ok(node) = document.get_dictionary(id) else {
+            break;
+        };
+        if crop_box.is_none() {
+            crop_box = node
+                .get(b"CropBox")
+                .ok()
+                .and_then(|value| parse_page_box(document, value));
+        }
+        if media_box.is_none() {
+            media_box = node
+                .get(b"MediaBox")
+                .ok()
+                .and_then(|value| parse_page_box(document, value));
+        }
+        current = node.get(b"Parent").and_then(Object::as_reference).ok();
+    }
+
+    crop_box.or(media_box).unwrap_or_default()
+}
+
+fn parse_page_box(document: &Document, value: &Object) -> Option<PageBox> {
+    let (_, value) = document.dereference(value).ok()?;
+    let array = value.as_array().ok()?;
+    if array.len() != 4 {
+        return None;
+    }
+    let x1 = number(&array[0]);
+    let y1 = number(&array[1]);
+    let x2 = number(&array[2]);
+    let y2 = number(&array[3]);
+    Some(PageBox {
+        left: x1.min(x2),
+        bottom: y1.min(y2),
+        right: x1.max(x2),
+        top: y1.max(y2),
+    })
 }
 
 fn number(value: &Object) -> f64 {
@@ -514,17 +575,105 @@ fn number(value: &Object) -> f64 {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct Matrix {
+    a: f64,
+    b: f64,
+    c: f64,
+    d: f64,
+    e: f64,
+    f: f64,
+}
+
+impl Matrix {
+    const IDENTITY: Self = Self {
+        a: 1.0,
+        b: 0.0,
+        c: 0.0,
+        d: 1.0,
+        e: 0.0,
+        f: 0.0,
+    };
+
+    fn from_operands(operands: &[Object]) -> Self {
+        Self {
+            a: number(&operands[0]),
+            b: number(&operands[1]),
+            c: number(&operands[2]),
+            d: number(&operands[3]),
+            e: number(&operands[4]),
+            f: number(&operands[5]),
+        }
+    }
+
+    fn translation(x: f64, y: f64) -> Self {
+        Self {
+            e: x,
+            f: y,
+            ..Self::IDENTITY
+        }
+    }
+
+    /// Compose a local-space transform after this transform.
+    fn concat(self, local: Self) -> Self {
+        Self {
+            a: self.a * local.a + self.c * local.b,
+            b: self.b * local.a + self.d * local.b,
+            c: self.a * local.c + self.c * local.d,
+            d: self.b * local.c + self.d * local.d,
+            e: self.a * local.e + self.c * local.f + self.e,
+            f: self.b * local.e + self.d * local.f + self.f,
+        }
+    }
+
+    fn point(self, x: f64, y: f64) -> (f64, f64) {
+        (
+            self.a * x + self.c * y + self.e,
+            self.b * x + self.d * y + self.f,
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TextState {
+    ctm: Matrix,
+    font_size: f64,
+    horizontal_scale: f64,
+    rise: f64,
+    leading: f64,
+}
+
+impl Default for TextState {
+    fn default() -> Self {
+        Self {
+            ctm: Matrix::IDENTITY,
+            font_size: 12.0,
+            horizontal_scale: 1.0,
+            rise: 0.0,
+            leading: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct BoundsOverflow {
+    axis: &'static str,
+    side: &'static str,
+    coordinate: f64,
+    boundary: f64,
+}
+
 fn inspect_operations(
     content: &Content,
-    page_width: f64,
+    bounds: PageBox,
     tolerance: f64,
-) -> (bool, Option<(f64, f64)>) {
+) -> (bool, Vec<BoundsOverflow>) {
     let mut has_color = false;
-    let mut font_size = 12.0;
-    let mut text_x = 0.0;
-    let mut scale_x = 1.0;
-    let mut scale_stack = Vec::new();
-    let mut worst = None;
+    let mut state = TextState::default();
+    let mut state_stack = Vec::new();
+    let mut text_matrix = Matrix::IDENTITY;
+    let mut line_matrix = Matrix::IDENTITY;
+    let mut worst: [Option<BoundsOverflow>; 4] = [None; 4];
     for op in &content.operations {
         match op.operator.as_str() {
             "rg" | "RG" | "k" | "K" | "sc" | "SC" | "scn" | "SCN" => {
@@ -532,45 +681,206 @@ fn inspect_operations(
                     has_color = true;
                 }
             }
-            "cm" if op.operands.len() >= 6 => scale_x *= number(&op.operands[0]).abs().max(0.01),
-            "q" => scale_stack.push(scale_x),
-            "Q" => scale_x = scale_stack.pop().unwrap_or(1.0),
-            "Tf" if op.operands.len() >= 2 => font_size = number(&op.operands[1]).abs(),
-            "Td" | "TD" if op.operands.len() >= 2 => text_x += number(&op.operands[0]),
-            "Tm" if op.operands.len() >= 6 => text_x = number(&op.operands[4]),
-            "Tj" | "'" | "\"" => {
-                if let Some(value) = op.operands.last() {
-                    let advance = string_len(value) as f64 * font_size * 0.58 * scale_x;
-                    let edge = text_x + advance;
-                    if edge > page_width + tolerance && worst.map(|(x, _)| edge > x).unwrap_or(true)
-                    {
-                        worst = Some((edge, page_width));
-                    }
-                    text_x += advance;
+            "cm" if op.operands.len() >= 6 => {
+                state.ctm = state.ctm.concat(Matrix::from_operands(&op.operands));
+            }
+            "q" => state_stack.push(state),
+            "Q" => state = state_stack.pop().unwrap_or_default(),
+            "BT" => {
+                text_matrix = Matrix::IDENTITY;
+                line_matrix = Matrix::IDENTITY;
+            }
+            "Tf" if op.operands.len() >= 2 => {
+                state.font_size = number(&op.operands[1]).abs().max(1.0);
+            }
+            "Tz" if !op.operands.is_empty() => {
+                state.horizontal_scale = number(&op.operands[0]).abs() / 100.0;
+            }
+            "Ts" if !op.operands.is_empty() => state.rise = number(&op.operands[0]),
+            "TL" if !op.operands.is_empty() => state.leading = number(&op.operands[0]),
+            "TD" if op.operands.len() >= 2 => {
+                state.leading = -number(&op.operands[1]);
+                line_matrix = line_matrix.concat(Matrix::translation(
+                    number(&op.operands[0]),
+                    number(&op.operands[1]),
+                ));
+                text_matrix = line_matrix;
+            }
+            "Td" if op.operands.len() >= 2 => {
+                line_matrix = line_matrix.concat(Matrix::translation(
+                    number(&op.operands[0]),
+                    number(&op.operands[1]),
+                ));
+                text_matrix = line_matrix;
+            }
+            "Tm" if op.operands.len() >= 6 => {
+                text_matrix = Matrix::from_operands(&op.operands);
+                line_matrix = text_matrix;
+            }
+            "T*" => {
+                line_matrix = line_matrix.concat(Matrix::translation(0.0, -state.leading));
+                text_matrix = line_matrix;
+            }
+            "Tj" => {
+                if let Some(value) = op.operands.first() {
+                    paint_text(
+                        value,
+                        &mut text_matrix,
+                        state,
+                        bounds,
+                        tolerance,
+                        &mut worst,
+                    );
+                }
+            }
+            "'" => {
+                line_matrix = line_matrix.concat(Matrix::translation(0.0, -state.leading));
+                text_matrix = line_matrix;
+                if let Some(value) = op.operands.first() {
+                    paint_text(
+                        value,
+                        &mut text_matrix,
+                        state,
+                        bounds,
+                        tolerance,
+                        &mut worst,
+                    );
+                }
+            }
+            "\"" => {
+                line_matrix = line_matrix.concat(Matrix::translation(0.0, -state.leading));
+                text_matrix = line_matrix;
+                if let Some(value) = op.operands.get(2) {
+                    paint_text(
+                        value,
+                        &mut text_matrix,
+                        state,
+                        bounds,
+                        tolerance,
+                        &mut worst,
+                    );
                 }
             }
             "TJ" => {
                 if let Some(Object::Array(values)) = op.operands.first() {
-                    let advance = values
-                        .iter()
-                        .map(|v| string_len(v) as f64 * font_size * 0.58 * scale_x)
-                        .sum::<f64>();
-                    let edge = text_x + advance;
-                    if edge > page_width + tolerance && worst.map(|(x, _)| edge > x).unwrap_or(true)
-                    {
-                        worst = Some((edge, page_width));
+                    for value in values {
+                        if matches!(value, Object::String(_, _)) {
+                            paint_text(
+                                value,
+                                &mut text_matrix,
+                                state,
+                                bounds,
+                                tolerance,
+                                &mut worst,
+                            );
+                        } else {
+                            let adjustment =
+                                -number(value) / 1000.0 * state.font_size * state.horizontal_scale;
+                            text_matrix = text_matrix.concat(Matrix::translation(adjustment, 0.0));
+                        }
                     }
-                    text_x += advance;
                 }
-            }
-            "BT" => {
-                text_x = 0.0;
-                scale_x = 1.0;
             }
             _ => {}
         }
     }
-    (has_color, worst)
+    (has_color, worst.into_iter().flatten().collect())
+}
+
+fn paint_text(
+    value: &Object,
+    text_matrix: &mut Matrix,
+    state: TextState,
+    bounds: PageBox,
+    tolerance: f64,
+    worst: &mut [Option<BoundsOverflow>; 4],
+) {
+    let advance = string_len(value) as f64 * state.font_size * 0.58 * state.horizontal_scale;
+    if advance <= f64::EPSILON {
+        return;
+    }
+
+    let placement = state.ctm.concat(*text_matrix);
+    let bottom = state.rise - state.font_size * 0.2;
+    let top = state.rise + state.font_size * 0.8;
+    let corners = [
+        placement.point(0.0, bottom),
+        placement.point(advance, bottom),
+        placement.point(0.0, top),
+        placement.point(advance, top),
+    ];
+    let min_x = corners
+        .iter()
+        .map(|(x, _)| *x)
+        .fold(f64::INFINITY, f64::min);
+    let max_x = corners
+        .iter()
+        .map(|(x, _)| *x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_y = corners
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::INFINITY, f64::min);
+    let max_y = corners
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    update_overflow(
+        &mut worst[0],
+        min_x < bounds.left - tolerance,
+        BoundsOverflow {
+            axis: "x",
+            side: "left",
+            coordinate: min_x,
+            boundary: bounds.left,
+        },
+    );
+    update_overflow(
+        &mut worst[1],
+        max_x > bounds.right + tolerance,
+        BoundsOverflow {
+            axis: "x",
+            side: "right",
+            coordinate: max_x,
+            boundary: bounds.right,
+        },
+    );
+    update_overflow(
+        &mut worst[2],
+        min_y < bounds.bottom - tolerance,
+        BoundsOverflow {
+            axis: "y",
+            side: "bottom",
+            coordinate: min_y,
+            boundary: bounds.bottom,
+        },
+    );
+    update_overflow(
+        &mut worst[3],
+        max_y > bounds.top + tolerance,
+        BoundsOverflow {
+            axis: "y",
+            side: "top",
+            coordinate: max_y,
+            boundary: bounds.top,
+        },
+    );
+
+    *text_matrix = text_matrix.concat(Matrix::translation(advance, 0.0));
+}
+
+fn update_overflow(current: &mut Option<BoundsOverflow>, outside: bool, candidate: BoundsOverflow) {
+    if !outside {
+        return;
+    }
+    let distance = (candidate.coordinate - candidate.boundary).abs();
+    if current
+        .map(|value| distance > (value.coordinate - value.boundary).abs())
+        .unwrap_or(true)
+    {
+        *current = Some(candidate);
+    }
 }
 
 fn string_len(value: &Object) -> usize {
@@ -614,8 +924,17 @@ mod tests {
                 Operation::new("Tj", vec![Object::string_literal("some very long line")]),
             ],
         };
-        let (color, overflow) = inspect_operations(&content, 100.0, 0.0);
+        let (color, overflow) = inspect_operations(
+            &content,
+            PageBox {
+                left: 0.0,
+                bottom: 0.0,
+                right: 100.0,
+                top: 100.0,
+            },
+            0.0,
+        );
         assert!(color);
-        assert!(overflow.is_some());
+        assert!(overflow.iter().any(|item| item.side == "right"));
     }
 }

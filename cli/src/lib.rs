@@ -3,6 +3,7 @@
 //! The public surface is intentionally small: parse Markdown source, inspect a
 //! PDF, and render a standalone proof sheet.
 
+pub mod demo;
 pub mod markdown;
 pub mod pdf;
 pub mod render;

@@ -64,6 +64,96 @@ fn code_flow_pdf(path: &std::path::Path, runs: &[(&str, i64)]) {
     doc.save(path).unwrap();
 }
 
+fn positioned_text_pdf(
+    path: &std::path::Path,
+    x: i64,
+    y: i64,
+    crop_box: Option<[i64; 4]>,
+    colored: bool,
+) {
+    let mut doc = Document::with_version("1.5");
+    let font = doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"
+    });
+    let resources = doc.add_object(dictionary! {
+        "Font" => dictionary! { "F1" => font }
+    });
+    let mut operations = Vec::new();
+    if colored {
+        operations.push(Operation::new(
+            "rg",
+            vec![0.into(), 0.into(), Object::Real(0.7)],
+        ));
+    }
+    operations.extend([
+        Operation::new("BT", vec![]),
+        Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), 12.into()]),
+        Operation::new(
+            "Tm",
+            vec![1.into(), 0.into(), 0.into(), 1.into(), x.into(), y.into()],
+        ),
+        Operation::new("Tj", vec![Object::string_literal("fn main() {}")]),
+        Operation::new("ET", vec![]),
+    ]);
+    let content = doc.add_object(Stream::new(
+        dictionary! {},
+        Content { operations }.encode().unwrap(),
+    ));
+    let pages = doc.new_object_id();
+    let mut page = dictionary! {
+        "Type" => "Page", "Parent" => pages, "Contents" => content,
+        "Resources" => resources, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()]
+    };
+    if let Some([left, bottom, right, top]) = crop_box {
+        page.set(
+            "CropBox",
+            vec![left.into(), bottom.into(), right.into(), top.into()],
+        );
+    }
+    let page = doc.add_object(page);
+    doc.objects.insert(
+        pages,
+        Object::Dictionary(dictionary! {
+            "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1
+        }),
+    );
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    doc.trailer.set("Root", catalog);
+    doc.compress();
+    doc.save(path).unwrap();
+}
+
+fn assert_page_overflow(x: i64, y: i64, crop_box: Option<[i64; 4]>, side: &str) {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join(format!("{side}-overflow.pdf"));
+    let proof = temp.path().join("proof");
+    fs::write(&markdown, "# Manual\n```rust\nfn main() {}\n```\n").unwrap();
+    positioned_text_pdf(&pdf, x, y, crop_box, true);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("geometry.text-overflow"))
+        .stdout(predicate::str::contains(format!(
+            "past the {side} page boundary"
+        )));
+
+    assert!(fs::read_to_string(proof.join("index.html"))
+        .unwrap()
+        .contains("HOLD"));
+}
+
 fn fixture_pdf_with_actions(
     path: &std::path::Path,
     annotation_targets: &[&str],
@@ -219,6 +309,46 @@ fn flattened_code_lines_fail_the_release_contract() {
 }
 
 #[test]
+fn wrapped_single_code_line_fails_the_release_contract() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("wrapped-single.md");
+    let pdf = temp.path().join("wrapped-single.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Manual\n```javascript\nconst endpoint = \"https://example.test/api\"; return endpoint;\n```\n",
+    )
+    .unwrap();
+    code_flow_pdf(
+        &pdf,
+        &[
+            ("const endpoint = \"https://example.test/api\"; ", 700),
+            ("return endpoint;", 682),
+        ],
+    );
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("\"passed\": false"))
+        .stdout(predicate::str::contains("code.flow-changed"));
+
+    assert!(fs::read_to_string(proof.join("index.html"))
+        .unwrap()
+        .contains("HOLD"));
+}
+
+#[test]
 fn separately_positioned_code_lines_preserve_flow() {
     let temp = tempfile::tempdir().unwrap();
     let markdown = temp.path().join("manual.md");
@@ -247,6 +377,69 @@ fn separately_positioned_code_lines_preserve_flow() {
         .success()
         .stdout(predicate::str::contains("\"passed\": true"))
         .stdout(predicate::str::contains("\"findings\": []"));
+}
+
+#[test]
+fn page_bounds_cover_every_media_and_crop_edge() {
+    assert_page_overflow(-30, 700, None, "left");
+    assert_page_overflow(590, 700, None, "right");
+    assert_page_overflow(72, 820, None, "top");
+    assert_page_overflow(72, -20, None, "bottom");
+    assert_page_overflow(20, 700, Some([36, 36, 576, 756]), "left");
+}
+
+#[test]
+fn missing_code_content_fails_the_release_contract() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("missing.pdf");
+    fs::write(&markdown, "# Manual\n```rust\nlet required = true;\n```\n").unwrap();
+    code_flow_pdf(&pdf, &[("let other = false;", 700)]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            temp.path().join("proof").to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("code.content-missing"));
+}
+
+#[test]
+fn missing_syntax_color_warns_and_respects_warning_policy() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("plain.pdf");
+    fs::write(&markdown, "# Manual\n```rust\nfn main() {}\n```\n").unwrap();
+    positioned_text_pdf(&pdf, 72, 700, None, false);
+
+    for (deny_warnings, expected_exit) in [(false, 0), (true, 1)] {
+        let proof = temp.path().join(format!("proof-{deny_warnings}"));
+        let mut command = Command::cargo_bin("codeproof").unwrap();
+        command.args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ]);
+        if deny_warnings {
+            command.arg("--deny-warnings");
+        }
+        command
+            .assert()
+            .code(expected_exit)
+            .stdout(predicate::str::contains("code.highlight-not-detected"));
+    }
 }
 
 #[test]
@@ -516,4 +709,33 @@ fn help_explains_the_ci_surface() {
         .success()
         .stdout(predicate::str::contains("--deny-warnings"))
         .stdout(predicate::str::contains("--engine-command"));
+}
+
+#[test]
+fn demo_uses_bundled_sample_data_and_writes_an_isolated_proof() {
+    let temp = tempfile::tempdir().unwrap();
+    let workspace = temp.path().join("demo");
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args(["demo", "--out", workspace.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "DEMO HOLD — 1 expected defect found",
+        ))
+        .stdout(predicate::str::contains("code.flow-changed"))
+        .stdout(predicate::str::contains(format!(
+            "Sample workspace: {}",
+            workspace.display()
+        )));
+
+    assert_eq!(
+        fs::read_to_string(workspace.join("sample-manual.md")).unwrap(),
+        codeproof::demo::SAMPLE_MARKDOWN
+    );
+    assert!(workspace.join("sample-manual.pdf").is_file());
+    let proof = fs::read_to_string(workspace.join("proof/index.html")).unwrap();
+    assert!(proof.contains("HOLD"));
+    assert!(proof.contains("code.flow-changed"));
 }

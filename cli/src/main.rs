@@ -24,6 +24,15 @@ struct Cli {
 enum Commands {
     /// Render and inspect a Markdown/PDF release pair
     Check(CheckArgs),
+    /// Run an isolated proof with bundled sample data
+    Demo(DemoArgs),
+}
+
+#[derive(Args)]
+struct DemoArgs {
+    /// Keep the sample Markdown, PDF, and proof in this directory
+    #[arg(long, value_name = "DIR")]
+    out: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -89,7 +98,67 @@ fn run() -> Result<bool, String> {
     let Cli { command } = Cli::parse();
     match command {
         Commands::Check(args) => check(args),
+        Commands::Demo(args) => demo(args),
     }
+}
+
+fn demo(args: DemoArgs) -> Result<bool, String> {
+    let workspace = match args.out {
+        Some(path) => {
+            std::fs::create_dir_all(&path).map_err(|error| {
+                format!(
+                    "could not create demo directory {}: {error}",
+                    path.display()
+                )
+            })?;
+            path
+        }
+        None => tempfile::Builder::new()
+            .prefix("codeproof-demo-")
+            .tempdir()
+            .map_err(|error| format!("could not create demo directory: {error}"))?
+            .keep(),
+    };
+    let source_path = workspace.join("sample-manual.md");
+    let pdf_path = workspace.join("sample-manual.pdf");
+    let proof_path = workspace.join("proof");
+    std::fs::write(&source_path, codeproof::demo::SAMPLE_MARKDOWN)
+        .map_err(|error| format!("could not write demo Markdown: {error}"))?;
+    codeproof::demo::write_sample_pdf(&pdf_path)?;
+
+    let source = parse_markdown(&source_path, codeproof::demo::SAMPLE_MARKDOWN);
+    let inspection = inspect_pdf(&pdf_path, &source, 2.0, true)?;
+    let report = Report::new(
+        &source_path,
+        &pdf_path,
+        "bundled-demo".into(),
+        inspection.findings,
+        inspection.pages,
+        source.fences.len(),
+        source.internal_links.len(),
+        inspection.link_annotations,
+        false,
+    );
+    write_html(&report, &proof_path)?;
+    println!(
+        "DEMO {} — {} expected defect{} found",
+        if report.summary.passed {
+            "PASS"
+        } else {
+            "HOLD"
+        },
+        report.summary.errors,
+        if report.summary.errors == 1 { "" } else { "s" }
+    );
+    for finding in &report.findings {
+        println!(
+            "  {:?} [{}] {}",
+            finding.severity, finding.code, finding.message
+        );
+    }
+    println!("Sample workspace: {}", workspace.display());
+    println!("Proof sheet: {}", proof_path.join("index.html").display());
+    Ok(true)
 }
 
 fn check(args: CheckArgs) -> Result<bool, String> {

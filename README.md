@@ -21,6 +21,19 @@ Code Proof has no runtime service and sends no telemetry. A renderer is only
 needed when Code Proof is asked to create the PDF. Existing PDFs can be checked
 directly.
 
+## Try the bundled sample
+
+Run a complete check without installing a renderer or using your own files:
+
+```sh
+codeproof demo
+```
+
+The command creates an isolated temporary workspace, checks the bundled sample,
+and prints the path to its HTML proof sheet. The sample contains one wrapped
+code line, so its proof shows an expected HOLD result. Keep the artifacts in a
+chosen directory with `codeproof demo --out demo-proof`.
+
 ## Usage
 
 Render with Pandoc, audit the result, and create `proof/index.html`:
@@ -60,9 +73,10 @@ Checks in v0.1:
 - every Markdown fragment link resolves to a heading and maps one-for-one to a
   PDF link annotation with the same named destination; that destination must
   resolve to a page in the final PDF;
-- code fence text remains present and line-shaped in the PDF;
-- painted text stays within the page media/crop box, with a configurable
-  tolerance;
+- code fence text remains present and keeps its source line flow in the PDF,
+  including a one-line fence that wraps onto multiple painted baselines;
+- painted text stays within all four transformed media/crop box edges, with a
+  configurable tolerance;
 - fenced blocks contain non-default color operators when highlighting is
   expected;
 - empty source, malformed fences, encrypted/unreadable PDF files, renderer
@@ -98,6 +112,9 @@ cargo package --manifest-path cli/Cargo.toml
 ```
 
 The site is Vite + vanilla TypeScript. Run it locally with `npm run dev`.
+
+Build the static deployment with `npm run build:site`. Deploy the generated
+`dist/site/` directory to the configured Static Web App; no server is required.
 
 ## Project status
 
