@@ -127,7 +127,13 @@ test('worker installs with production-only deployment files unavailable', async 
   const shell = await page.evaluate(async () => (await fetch('/sw.js')).text());
   expect(shell).not.toContain('staticwebapp.config.json');
   const caches = await page.evaluate(async () => (await caches.keys()).filter((name) => name.startsWith('code-proof-')));
-  expect(caches).toContain('code-proof-v2');
+  expect(caches).toEqual(['code-proof-v3']);
+  const update = await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    await registration?.update();
+    return { installing: Boolean(registration?.installing), waiting: Boolean(registration?.waiting) };
+  });
+  expect(update).toEqual({ installing: false, waiting: false });
 });
 
 for (const path of ['/privacy/', '/terms/']) {

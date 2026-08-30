@@ -1,10 +1,10 @@
 # Code Proof
 
 Code Proof is a local, single-binary release check for engineers and technical
-writers shipping code-heavy Markdown manuals as PDF. It renders through the
-engine you already use, inspects PDF links and page geometry, matches fenced
-code back to the final artifact, and writes an evidence-rich HTML proof sheet.
-It is a verifier, not another Markdown editor or renderer.
+writers. It checks code-heavy Markdown manuals before PDF release. It uses your
+existing engine and inspects PDF links, page geometry, and fenced code. It
+writes a self-contained HTML proof sheet. It is a verifier, not another editor
+or renderer.
 
 Live docs: <https://markdown-pdf-code-proof.sociobot.in>
 
@@ -65,9 +65,9 @@ codeproof check manual.md --pdf manual.pdf --json > proof.json
 ```
 
 Exit codes are stable: `0` means the PDF contract passed, `1` means defects
-were found, and `2` means the command or renderer could not complete. By
-default warnings (such as a code fence with no detectable colored text) do not
-fail the build; add `--deny-warnings` to promote them.
+were found, and `2` means the command or renderer could not complete. Warnings
+do not fail the build by default. A fence with no detectable color is one
+example. Add `--deny-warnings` to make warnings fail.
 
 Checks in v0.1:
 
@@ -88,13 +88,12 @@ Run `codeproof check --help` for all engine-specific controls.
 ## Renderer safety
 
 On Linux, every renderer is contained with kernel-enforced Landlock and seccomp
-rules. It gets a read-only view of the Markdown source directory and the
-runtime files it needs, a writable private proof workspace, and no ability to
-create or use network sockets. Code Proof refuses to launch a renderer where
-those kernel controls are unavailable; checking an existing PDF remains
-available everywhere. The built-in Pandoc adapter also disables raw HTML and
-uses a fixed argument list. Code Proof enforces a timeout and never executes
-Markdown scripts itself.
+rules. It can read the Markdown directory and required runtime files. It can
+write only to its private proof workspace. It cannot create or use network
+sockets. Code Proof refuses to launch a renderer without those kernel controls.
+Checking an existing PDF remains available everywhere. The Pandoc adapter also
+disables raw HTML and uses fixed arguments. Code Proof enforces a timeout and
+never executes Markdown scripts.
 
 ## Develop and verify
 
