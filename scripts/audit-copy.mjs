@@ -148,7 +148,7 @@ const requiredTerms = [
   'Check Markdown against the finished PDF.',
   'Check links, syntax color, and text that runs outside the page.',
   'Review the HTML proof sheet',
-  'A language-tagged code fence warns when Code Proof cannot detect syntax color.'
+  'Each language-tagged code fence warns when its matching PDF text has no syntax color.'
 ];
 for (const required of requiredTerms) {
   if (!allCopy.includes(required)) throw new Error(`required public wording is missing: ${required}`);

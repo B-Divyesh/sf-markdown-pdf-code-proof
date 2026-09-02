@@ -194,8 +194,21 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 10 | That destination must open a page in the finished PDF. |
 | 11 | Code fence text must remain present and keep its line breaks. |
 | 10 | One source line fails if it wraps in the PDF. |
-| 9 | Text is checked against every visible PDF page edge. |
-| 12 | A language-tagged code fence warns when Code Proof cannot detect syntax color. |
+| 17 | Text is checked against every visible PDF page edge using the PDF font's widths and text transforms. |
+| 7 | Standard PDF font metrics cover base fonts. |
+| 14 | Each language-tagged code fence warns when its matching PDF text has no syntax color. |
+| 9 | Colored headings, links, logos, and graphics do not count. |
+| 2 | Heading fragments |
+| 10 | Code Proof parses CommonMark ATX (`# Heading`) and Setext headings. |
+| 13 | Pandoc explicit IDs such as `## Retry behavior {#retry-policy}` define the fragment directly. |
+| 4 | Fragment matching is case-insensitive. |
+| 11 | Without an explicit ID, Code Proof follows Pandoc's automatic identifier rules. |
+| 6 | Formatting and most punctuation are removed. |
+| 3 | Spaces become hyphens. |
+| 3 | Letters become lowercase. |
+| 4 | Leading non-letters are removed. |
+| 15 | Use explicit IDs for repeated headings or when a custom renderer uses different fragment rules. |
+| 13 | The final check still requires the same PDF link annotation and named destination. |
 | 7 | Run `codeproof check --help` for command options. |
 | 2 | Renderer safety |
 | 10 | Code Proof applies its Linux sandbox before a renderer starts. |

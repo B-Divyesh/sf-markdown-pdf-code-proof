@@ -31,7 +31,6 @@ pub fn inspect_pdf(
 
     let mut findings = Vec::new();
     let mut link_annotations = 0;
-    let mut has_color = false;
     let mut all_text = String::new();
     let mut visual_lines = Vec::new();
 
@@ -56,9 +55,13 @@ pub fn inspect_pdf(
         if let Ok(bytes) = document.get_page_content(*id) {
             if let Ok(content) = Content::decode(&bytes) {
                 visual_lines.extend(extract_visual_lines(&document, *id, &content));
-                let (colored, overflows) =
-                    inspect_operations(&content, page_box(&document, *id), overflow_tolerance);
-                has_color |= colored;
+                let overflows = inspect_operations(
+                    &document,
+                    *id,
+                    &content,
+                    page_box(&document, *id),
+                    overflow_tolerance,
+                );
                 for overflow in overflows {
                     findings.push(
                         Finding::new(
@@ -85,7 +88,26 @@ pub fn inspect_pdf(
     inspect_internal_links(&document, &pages, source, &mut findings);
 
     let normalized_pdf = normalize(&all_text);
-    for fence in &source.fences {
+    let mut visual_cursor = 0;
+    let fence_visual_ranges = source
+        .fences
+        .iter()
+        .map(|fence| {
+            let useful = fence
+                .lines
+                .iter()
+                .map(String::as_str)
+                .filter(|line| !line.trim().is_empty())
+                .collect::<Vec<_>>();
+            let found = matching_visual_line_range(&useful, &visual_lines, visual_cursor);
+            if let Some(range) = &found {
+                visual_cursor = range.end;
+            }
+            found
+        })
+        .collect::<Vec<_>>();
+
+    for (index, fence) in source.fences.iter().enumerate() {
         let useful: Vec<&str> = fence
             .lines
             .iter()
@@ -110,7 +132,7 @@ pub fn inspect_pdf(
                 format!("First missing line: {}", truncate(missing[0], 90)),
                 Some(fence.line),
             ));
-        } else if !useful.is_empty() && !preserves_line_flow(&useful, &visual_lines) {
+        } else if !useful.is_empty() && fence_visual_ranges[index].is_none() {
             findings.push(Finding::new(
                 "code.flow-changed",
                 Severity::Error,
@@ -124,22 +146,40 @@ pub fn inspect_pdf(
         }
     }
 
-    let expects_highlight = source
-        .fences
-        .iter()
-        .any(|f| f.language.is_some() && !f.lines.is_empty());
-    if check_highlighting && expects_highlight && !has_color {
-        findings.push(Finding::new(
-            "code.highlight-not-detected",
-            Severity::Warning,
-            "Language-tagged code exists, but no non-default color operation was found",
-            "Confirm syntax highlighting visually or configure the renderer's highlight style.",
-            source
-                .fences
+    if check_highlighting {
+        for (index, fence) in source
+            .fences
+            .iter()
+            .enumerate()
+            .filter(|(_, fence)| fence.language.is_some())
+        {
+            let useful = fence
+                .lines
                 .iter()
-                .find(|f| f.language.is_some())
-                .map(|f| f.line),
-        ));
+                .map(String::as_str)
+                .filter(|line| !line.trim().is_empty())
+                .collect::<Vec<_>>();
+            let Some(range) = &fence_visual_ranges[index] else {
+                continue;
+            };
+            let lines = &visual_lines[range.clone()];
+            let has_syntax_color = useful
+                .iter()
+                .zip(lines)
+                .any(|(source, line)| matching_token_color(source, line).unwrap_or(false));
+            if !useful.is_empty() && !has_syntax_color {
+                findings.push(Finding::new(
+                    "code.highlight-not-detected",
+                    Severity::Warning,
+                    format!(
+                        "Language-tagged code fence on line {} has no non-black text",
+                        fence.line
+                    ),
+                    "Confirm syntax highlighting visually or configure the renderer's highlight style.",
+                    Some(fence.line),
+                ));
+            }
+        }
     }
 
     Ok(PdfInspection {
@@ -153,7 +193,36 @@ pub fn inspect_pdf(
 /// intentionally concatenates every `Tj`/`TJ` operation until `ET`, which
 /// loses the distinction between a code block and the same words flattened
 /// into a paragraph. This small text-state walker keeps that evidence.
-fn extract_visual_lines(document: &Document, page_id: ObjectId, content: &Content) -> Vec<String> {
+#[derive(Debug)]
+struct VisualLine {
+    tokens: Vec<VisualToken>,
+}
+
+#[derive(Debug)]
+struct VisualToken {
+    text: String,
+    has_non_black_text: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct PaintState {
+    fill_non_black: bool,
+    stroke_non_black: bool,
+    render_mode: u8,
+}
+
+impl PaintState {
+    fn text_is_non_black(self) -> bool {
+        matches!(self.render_mode, 0 | 2 | 4 | 6) && self.fill_non_black
+            || matches!(self.render_mode, 1 | 2 | 5 | 6) && self.stroke_non_black
+    }
+}
+
+fn extract_visual_lines(
+    document: &Document,
+    page_id: ObjectId,
+    content: &Content,
+) -> Vec<VisualLine> {
     let encodings: BTreeMap<Vec<u8>, Encoding<'_>> = document
         .get_page_fonts(page_id)
         .map(|fonts| {
@@ -168,10 +237,12 @@ fn extract_visual_lines(document: &Document, page_id: ObjectId, content: &Conten
         })
         .unwrap_or_default();
     let mut current_font = Vec::new();
-    let mut current_line = String::new();
+    let mut current_line = Vec::new();
     let mut lines = Vec::new();
     let mut baseline = None;
     let mut font_size = 12.0_f64;
+    let mut paint = PaintState::default();
+    let mut paint_stack = Vec::new();
 
     for operation in &content.operations {
         match operation.operator.as_str() {
@@ -182,6 +253,33 @@ fn extract_visual_lines(document: &Document, page_id: ObjectId, content: &Conten
             "ET" => {
                 finish_visual_line(&mut lines, &mut current_line);
                 baseline = None;
+            }
+            "q" => paint_stack.push(paint),
+            "Q" => paint = paint_stack.pop().unwrap_or_default(),
+            "g" if !operation.operands.is_empty() => {
+                paint.fill_non_black = gray_is_non_black(&operation.operands)
+            }
+            "G" if !operation.operands.is_empty() => {
+                paint.stroke_non_black = gray_is_non_black(&operation.operands)
+            }
+            "rg" if operation.operands.len() >= 3 => {
+                paint.fill_non_black = rgb_is_non_black(&operation.operands)
+            }
+            "RG" if operation.operands.len() >= 3 => {
+                paint.stroke_non_black = rgb_is_non_black(&operation.operands)
+            }
+            "k" if operation.operands.len() >= 4 => {
+                paint.fill_non_black = cmyk_is_non_black(&operation.operands)
+            }
+            "K" if operation.operands.len() >= 4 => {
+                paint.stroke_non_black = cmyk_is_non_black(&operation.operands)
+            }
+            "sc" | "scn" => paint.fill_non_black = generic_color_is_non_black(&operation.operands),
+            "SC" | "SCN" => {
+                paint.stroke_non_black = generic_color_is_non_black(&operation.operands)
+            }
+            "Tr" if !operation.operands.is_empty() => {
+                paint.render_mode = number(&operation.operands[0]).clamp(0.0, 7.0) as u8
             }
             "Tf" if operation.operands.len() >= 2 => {
                 if let Ok(name) = operation.operands[0].as_name() {
@@ -216,6 +314,7 @@ fn extract_visual_lines(document: &Document, page_id: ObjectId, content: &Conten
                     append_decoded_text(
                         &mut lines,
                         &mut current_line,
+                        paint.text_is_non_black(),
                         decode_text_operands(encoding, &operation.operands),
                     );
                 }
@@ -225,6 +324,7 @@ fn extract_visual_lines(document: &Document, page_id: ObjectId, content: &Conten
                     append_decoded_text(
                         &mut lines,
                         &mut current_line,
+                        paint.text_is_non_black(),
                         decode_text_operands(encoding, &operation.operands),
                     );
                 }
@@ -240,8 +340,8 @@ fn move_to_baseline(
     next: f64,
     font_size: f64,
     baseline: &mut Option<f64>,
-    lines: &mut Vec<String>,
-    current_line: &mut String,
+    lines: &mut Vec<VisualLine>,
+    current_line: &mut Vec<(char, bool)>,
 ) {
     // Renderers round text matrices differently. A font-relative tolerance
     // ignores sub-point positioning noise while keeping actual code baselines
@@ -270,34 +370,115 @@ fn decode_text_operands(encoding: &Encoding<'_>, operands: &[Object]) -> String 
     output
 }
 
-fn append_decoded_text(lines: &mut Vec<String>, current_line: &mut String, text: String) {
-    let mut parts = text.split('\n').peekable();
-    while let Some(part) = parts.next() {
-        current_line.push_str(part);
-        if parts.peek().is_some() {
+fn append_decoded_text(
+    lines: &mut Vec<VisualLine>,
+    current_line: &mut Vec<(char, bool)>,
+    has_non_black_text: bool,
+    text: String,
+) {
+    for character in text.chars() {
+        if character == '\n' {
             finish_visual_line(lines, current_line);
+        } else {
+            current_line.push((character, has_non_black_text));
         }
     }
 }
 
-fn finish_visual_line(lines: &mut Vec<String>, current_line: &mut String) {
-    let line = normalize(current_line);
-    if !line.is_empty() {
-        lines.push(line);
+fn finish_visual_line(lines: &mut Vec<VisualLine>, current_line: &mut Vec<(char, bool)>) {
+    let mut tokens = Vec::new();
+    let mut token = String::new();
+    let mut token_has_non_black_text = false;
+    for (character, colored) in current_line.drain(..) {
+        if character.is_whitespace() {
+            finish_visual_token(&mut tokens, &mut token, &mut token_has_non_black_text);
+        } else {
+            token.push(character);
+            token_has_non_black_text |= colored;
+        }
     }
-    current_line.clear();
+    finish_visual_token(&mut tokens, &mut token, &mut token_has_non_black_text);
+    if !tokens.is_empty() {
+        lines.push(VisualLine { tokens });
+    }
 }
 
-fn preserves_line_flow(source_lines: &[&str], visual_lines: &[String]) -> bool {
-    let source_lines = source_lines
+fn finish_visual_token(
+    tokens: &mut Vec<VisualToken>,
+    token: &mut String,
+    has_non_black_text: &mut bool,
+) {
+    if !token.is_empty() {
+        tokens.push(VisualToken {
+            text: std::mem::take(token),
+            has_non_black_text: *has_non_black_text,
+        });
+    }
+    *has_non_black_text = false;
+}
+
+fn matching_visual_line_range(
+    source_lines: &[&str],
+    visual_lines: &[VisualLine],
+    start: usize,
+) -> Option<std::ops::Range<usize>> {
+    if source_lines.is_empty() {
+        return Some(start..start);
+    }
+    visual_lines[start..]
+        .windows(source_lines.len())
+        .position(|window| {
+            source_lines
+                .iter()
+                .zip(window.iter())
+                .all(|(source, painted)| matching_token_color(source, painted).is_some())
+        })
+        .map(|offset| {
+            let first = start + offset;
+            first..first + source_lines.len()
+        })
+}
+
+fn matching_token_color(source: &str, visual: &VisualLine) -> Option<bool> {
+    let source = source.split_whitespace().collect::<Vec<_>>();
+    if source.is_empty() {
+        return Some(false);
+    }
+    visual
+        .tokens
+        .windows(source.len())
+        .find(|window| {
+            source
+                .iter()
+                .zip(window.iter())
+                .all(|(source, painted)| *source == painted.text)
+        })
+        .map(|window| window.iter().any(|token| token.has_non_black_text))
+}
+
+fn gray_is_non_black(operands: &[Object]) -> bool {
+    number(&operands[0]).abs() > f64::EPSILON
+}
+
+fn rgb_is_non_black(operands: &[Object]) -> bool {
+    operands
         .iter()
-        .map(|line| normalize(line))
-        .collect::<Vec<_>>();
-    visual_lines.windows(source_lines.len()).any(|window| {
-        source_lines
-            .iter()
-            .zip(window)
-            .all(|(source, painted)| painted.contains(source))
+        .take(3)
+        .any(|value| number(value).abs() > f64::EPSILON)
+}
+
+fn cmyk_is_non_black(operands: &[Object]) -> bool {
+    operands
+        .iter()
+        .take(3)
+        .any(|value| number(value).abs() > f64::EPSILON)
+        || (number(&operands[3]) - 1.0).abs() > f64::EPSILON
+}
+
+fn generic_color_is_non_black(operands: &[Object]) -> bool {
+    operands.iter().any(|value| match value {
+        Object::Name(_) => true,
+        _ => number(value).abs() > f64::EPSILON,
     })
 }
 
@@ -579,6 +760,295 @@ fn number(value: &Object) -> f64 {
 }
 
 #[derive(Clone, Copy, Debug)]
+struct FontBox {
+    bottom: f64,
+    top: f64,
+}
+
+#[derive(Clone, Debug)]
+struct FontMetrics {
+    widths: HashMap<u32, f64>,
+    default_width: f64,
+    code_bytes: usize,
+    base_font: String,
+    bbox: FontBox,
+}
+
+impl Default for FontMetrics {
+    fn default() -> Self {
+        Self {
+            widths: HashMap::new(),
+            // Unknown glyphs are treated conservatively as one em. A PDF's
+            // /Widths, /W, /MissingWidth, or standard-font metrics replace it.
+            default_width: 1000.0,
+            code_bytes: 1,
+            base_font: String::new(),
+            bbox: FontBox {
+                bottom: -200.0,
+                top: 800.0,
+            },
+        }
+    }
+}
+
+impl FontMetrics {
+    fn text_width(&self, bytes: &[u8]) -> (f64, usize, usize) {
+        let mut width = 0.0;
+        let mut glyphs = 0;
+        let mut spaces = 0;
+        if self.code_bytes == 2 {
+            for pair in bytes.chunks(2) {
+                let code = if pair.len() == 2 {
+                    u32::from(u16::from_be_bytes([pair[0], pair[1]]))
+                } else {
+                    u32::from(pair[0])
+                };
+                width += self.width(code);
+                glyphs += 1;
+            }
+        } else {
+            for byte in bytes {
+                let code = u32::from(*byte);
+                width += self.width(code);
+                glyphs += 1;
+                spaces += usize::from(*byte == b' ');
+            }
+        }
+        (width, glyphs, spaces)
+    }
+
+    fn width(&self, code: u32) -> f64 {
+        self.widths
+            .get(&code)
+            .copied()
+            .or_else(|| standard_glyph_width(&self.base_font, code))
+            .unwrap_or(self.default_width)
+    }
+}
+
+fn page_font_metrics(document: &Document, page_id: ObjectId) -> BTreeMap<Vec<u8>, FontMetrics> {
+    document
+        .get_page_fonts(page_id)
+        .map(|fonts| {
+            fonts
+                .into_iter()
+                .map(|(name, font)| (name, font_metrics(document, font)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn font_metrics(document: &Document, font: &Dictionary) -> FontMetrics {
+    let mut metrics = FontMetrics {
+        base_font: font
+            .get(b"BaseFont")
+            .and_then(Object::as_name)
+            .map(|name| String::from_utf8_lossy(name).into_owned())
+            .unwrap_or_default(),
+        ..FontMetrics::default()
+    };
+
+    if matches!(font.get(b"Subtype").and_then(Object::as_name), Ok(b"Type0")) {
+        metrics.code_bytes = 2;
+        if let Some(descendant) = font
+            .get(b"DescendantFonts")
+            .ok()
+            .and_then(|value| deref_array(document, value).ok())
+            .and_then(|fonts| fonts.first())
+            .and_then(|value| deref_dict(document, value))
+        {
+            metrics.default_width = descendant
+                .get(b"DW")
+                .ok()
+                .map(number)
+                .filter(|width| *width > 0.0)
+                .unwrap_or(1000.0);
+            if let Ok(widths) = descendant.get(b"W") {
+                parse_cid_widths(document, widths, &mut metrics.widths);
+            }
+            metrics.bbox = font_bbox(document, descendant).unwrap_or(metrics.bbox);
+        }
+        return metrics;
+    }
+
+    let first_char = font.get(b"FirstChar").ok().map(number).unwrap_or(0.0) as u32;
+    if let Some(widths) = font
+        .get(b"Widths")
+        .ok()
+        .and_then(|value| deref_array(document, value).ok())
+    {
+        for (offset, value) in widths.iter().enumerate() {
+            metrics
+                .widths
+                .insert(first_char + offset as u32, number(value));
+        }
+    }
+    if let Some(descriptor) = font
+        .get(b"FontDescriptor")
+        .ok()
+        .and_then(|value| deref_dict(document, value))
+    {
+        metrics.default_width = descriptor
+            .get(b"MissingWidth")
+            .ok()
+            .map(number)
+            .filter(|width| *width > 0.0)
+            .unwrap_or(metrics.default_width);
+    }
+    metrics.bbox =
+        font_bbox(document, font).unwrap_or_else(|| standard_font_box(&metrics.base_font));
+    metrics
+}
+
+fn parse_cid_widths(document: &Document, value: &Object, output: &mut HashMap<u32, f64>) {
+    let Ok(values) = deref_array(document, value) else {
+        return;
+    };
+    let mut index = 0;
+    while index < values.len() {
+        let start = number(&values[index]) as u32;
+        index += 1;
+        let Some(next) = values.get(index) else {
+            break;
+        };
+        if let Ok(widths) = deref_array(document, next) {
+            for (offset, width) in widths.iter().enumerate() {
+                output.insert(start + offset as u32, number(width));
+            }
+            index += 1;
+        } else if let (Some(end), Some(width)) = (values.get(index), values.get(index + 1)) {
+            let end = number(end) as u32;
+            let width = number(width);
+            for code in start..=end {
+                output.insert(code, width);
+            }
+            index += 2;
+        } else {
+            break;
+        }
+    }
+}
+
+fn font_bbox(document: &Document, font: &Dictionary) -> Option<FontBox> {
+    let descriptor = font
+        .get(b"FontDescriptor")
+        .ok()
+        .and_then(|value| deref_dict(document, value));
+    let value = descriptor
+        .and_then(|dict| dict.get(b"FontBBox").ok())
+        .or_else(|| font.get(b"FontBBox").ok())?;
+    let values = deref_array(document, value).ok()?;
+    if values.len() != 4 {
+        return None;
+    }
+    Some(FontBox {
+        bottom: number(&values[1]),
+        top: number(&values[3]),
+    })
+}
+
+fn standard_font_box(base_font: &str) -> FontBox {
+    let name = base_font.rsplit('+').next().unwrap_or(base_font);
+    if name.starts_with("Helvetica") {
+        FontBox {
+            bottom: -225.0,
+            top: 931.0,
+        }
+    } else if name.starts_with("Times") {
+        FontBox {
+            bottom: -218.0,
+            top: 898.0,
+        }
+    } else if name.starts_with("Courier") {
+        FontBox {
+            bottom: -250.0,
+            top: 805.0,
+        }
+    } else {
+        FontMetrics::default().bbox
+    }
+}
+
+fn standard_glyph_width(base_font: &str, code: u32) -> Option<f64> {
+    let name = base_font.rsplit('+').next().unwrap_or(base_font);
+    if name.starts_with("Courier") && (32..=255).contains(&code) {
+        return Some(600.0);
+    }
+    if !name.starts_with("Helvetica") {
+        return None;
+    }
+    let width = match code {
+        32 => 278,
+        33 => 278,
+        34 => 355,
+        35..=36 => 556,
+        37 => 889,
+        38 => 667,
+        39 => 191,
+        40..=41 => 333,
+        42 => 389,
+        43 => 584,
+        44 => 278,
+        45 => 333,
+        46..=47 => 278,
+        48..=57 => 556,
+        58..=59 => 278,
+        60..=62 => 584,
+        63 => 556,
+        64 => 1015,
+        65..=66 => 667,
+        67..=68 => 722,
+        69 => 667,
+        70 => 611,
+        71 => 778,
+        72 => 722,
+        73 => 278,
+        74 => 500,
+        75 => 667,
+        76 => 556,
+        77 => 833,
+        78 => 722,
+        79 => 778,
+        80 => 667,
+        81 => 778,
+        82 => 722,
+        83 => 667,
+        84 => 611,
+        85 => 722,
+        86 => 667,
+        87 => 944,
+        88..=89 => 667,
+        90 => 611,
+        91..=93 => 278,
+        94 => 469,
+        95 => 556,
+        96 => 333,
+        97..=98 => 556,
+        99 => 500,
+        100..=101 => 556,
+        102 => 278,
+        103..=104 => 556,
+        105..=106 => 222,
+        107 => 500,
+        108 => 222,
+        109 => 833,
+        110..=113 => 556,
+        114 => 333,
+        115 => 500,
+        116 => 278,
+        117 => 556,
+        118 => 500,
+        119 => 722,
+        120..=122 => 500,
+        123 | 125 => 334,
+        124 => 260,
+        126 => 584,
+        _ => return None,
+    };
+    Some(f64::from(width))
+}
+
+#[derive(Clone, Copy, Debug)]
 struct Matrix {
     a: f64,
     b: f64,
@@ -637,11 +1107,14 @@ impl Matrix {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct TextState {
     ctm: Matrix,
+    font_name: Vec<u8>,
     font_size: f64,
     horizontal_scale: f64,
+    character_spacing: f64,
+    word_spacing: f64,
     rise: f64,
     leading: f64,
 }
@@ -650,8 +1123,11 @@ impl Default for TextState {
     fn default() -> Self {
         Self {
             ctm: Matrix::IDENTITY,
+            font_name: Vec::new(),
             font_size: 12.0,
             horizontal_scale: 1.0,
+            character_spacing: 0.0,
+            word_spacing: 0.0,
             rise: 0.0,
             leading: 0.0,
         }
@@ -667,11 +1143,13 @@ struct BoundsOverflow {
 }
 
 fn inspect_operations(
+    document: &Document,
+    page_id: ObjectId,
     content: &Content,
     bounds: PageBox,
     tolerance: f64,
-) -> (bool, Vec<BoundsOverflow>) {
-    let mut has_color = false;
+) -> Vec<BoundsOverflow> {
+    let fonts = page_font_metrics(document, page_id);
     let mut state = TextState::default();
     let mut state_stack = Vec::new();
     let mut text_matrix = Matrix::IDENTITY;
@@ -679,23 +1157,24 @@ fn inspect_operations(
     let mut worst: [Option<BoundsOverflow>; 4] = [None; 4];
     for op in &content.operations {
         match op.operator.as_str() {
-            "rg" | "RG" | "k" | "K" | "sc" | "SC" | "scn" | "SCN" => {
-                if op.operands.iter().any(|v| number(v).abs() > f64::EPSILON) {
-                    has_color = true;
-                }
-            }
             "cm" if op.operands.len() >= 6 => {
                 state.ctm = state.ctm.concat(Matrix::from_operands(&op.operands));
             }
-            "q" => state_stack.push(state),
+            "q" => state_stack.push(state.clone()),
             "Q" => state = state_stack.pop().unwrap_or_default(),
             "BT" => {
                 text_matrix = Matrix::IDENTITY;
                 line_matrix = Matrix::IDENTITY;
             }
             "Tf" if op.operands.len() >= 2 => {
+                if let Ok(name) = op.operands[0].as_name() {
+                    state.font_name.clear();
+                    state.font_name.extend_from_slice(name);
+                }
                 state.font_size = number(&op.operands[1]).abs().max(1.0);
             }
+            "Tc" if !op.operands.is_empty() => state.character_spacing = number(&op.operands[0]),
+            "Tw" if !op.operands.is_empty() => state.word_spacing = number(&op.operands[0]),
             "Tz" if !op.operands.is_empty() => {
                 state.horizontal_scale = number(&op.operands[0]).abs() / 100.0;
             }
@@ -729,7 +1208,8 @@ fn inspect_operations(
                     paint_text(
                         value,
                         &mut text_matrix,
-                        state,
+                        &state,
+                        fonts.get(&state.font_name),
                         bounds,
                         tolerance,
                         &mut worst,
@@ -743,7 +1223,8 @@ fn inspect_operations(
                     paint_text(
                         value,
                         &mut text_matrix,
-                        state,
+                        &state,
+                        fonts.get(&state.font_name),
                         bounds,
                         tolerance,
                         &mut worst,
@@ -757,7 +1238,8 @@ fn inspect_operations(
                     paint_text(
                         value,
                         &mut text_matrix,
-                        state,
+                        &state,
+                        fonts.get(&state.font_name),
                         bounds,
                         tolerance,
                         &mut worst,
@@ -771,7 +1253,8 @@ fn inspect_operations(
                             paint_text(
                                 value,
                                 &mut text_matrix,
-                                state,
+                                &state,
+                                fonts.get(&state.font_name),
                                 bounds,
                                 tolerance,
                                 &mut worst,
@@ -787,25 +1270,33 @@ fn inspect_operations(
             _ => {}
         }
     }
-    (has_color, worst.into_iter().flatten().collect())
+    worst.into_iter().flatten().collect()
 }
 
 fn paint_text(
     value: &Object,
     text_matrix: &mut Matrix,
-    state: TextState,
+    state: &TextState,
+    font: Option<&FontMetrics>,
     bounds: PageBox,
     tolerance: f64,
     worst: &mut [Option<BoundsOverflow>; 4],
 ) {
-    let advance = string_len(value) as f64 * state.font_size * 0.58 * state.horizontal_scale;
+    let Some(bytes) = string_bytes(value) else {
+        return;
+    };
+    let fallback = FontMetrics::default();
+    let font = font.unwrap_or(&fallback);
+    let (width, glyphs, spaces) = font.text_width(bytes);
+    let spacing = glyphs as f64 * state.character_spacing + spaces as f64 * state.word_spacing;
+    let advance = (width / 1000.0 * state.font_size + spacing) * state.horizontal_scale;
     if advance <= f64::EPSILON {
         return;
     }
 
     let placement = state.ctm.concat(*text_matrix);
-    let bottom = state.rise - state.font_size * 0.2;
-    let top = state.rise + state.font_size * 0.8;
+    let bottom = state.rise + font.bbox.bottom / 1000.0 * state.font_size;
+    let top = state.rise + font.bbox.top / 1000.0 * state.font_size;
     let corners = [
         placement.point(0.0, bottom),
         placement.point(advance, bottom),
@@ -886,13 +1377,10 @@ fn update_overflow(current: &mut Option<BoundsOverflow>, outside: bool, candidat
     }
 }
 
-fn string_len(value: &Object) -> usize {
+fn string_bytes(value: &Object) -> Option<&[u8]> {
     match value {
-        Object::String(bytes, _) if bytes.starts_with(&[0xfe, 0xff]) => {
-            bytes.len().saturating_sub(2) / 2
-        }
-        Object::String(bytes, _) => bytes.len(),
-        _ => 0,
+        Object::String(bytes, _) => Some(bytes),
+        _ => None,
     }
 }
 
@@ -914,10 +1402,20 @@ mod tests {
     use lopdf::content::Operation;
 
     #[test]
-    fn detects_color_and_overflow() {
+    fn transformed_text_geometry_detects_overflow() {
+        let mut document = Document::with_version("1.5");
+        let font = document.add_object(lopdf::dictionary! {
+            "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"
+        });
+        let resources = document.add_object(lopdf::dictionary! {
+            "Font" => lopdf::dictionary! { "F1" => font }
+        });
         let content = Content {
             operations: vec![
-                Operation::new("rg", vec![0.into(), 0.into(), 1.into()]),
+                Operation::new(
+                    "cm",
+                    vec![2.into(), 0.into(), 0.into(), 1.into(), 0.into(), 0.into()],
+                ),
                 Operation::new("BT", vec![]),
                 Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), 12.into()]),
                 Operation::new(
@@ -927,7 +1425,24 @@ mod tests {
                 Operation::new("Tj", vec![Object::string_literal("some very long line")]),
             ],
         };
-        let (color, overflow) = inspect_operations(
+        let pages = document.new_object_id();
+        let stream = document.add_object(lopdf::Stream::new(
+            lopdf::dictionary! {},
+            content.encode().unwrap(),
+        ));
+        let page = document.add_object(lopdf::dictionary! {
+            "Type" => "Page", "Parent" => pages, "Contents" => stream,
+            "Resources" => resources, "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()]
+        });
+        document.objects.insert(
+            pages,
+            Object::Dictionary(lopdf::dictionary! {
+                "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1
+            }),
+        );
+        let overflow = inspect_operations(
+            &document,
+            page,
             &content,
             PageBox {
                 left: 0.0,
@@ -937,7 +1452,6 @@ mod tests {
             },
             0.0,
         );
-        assert!(color);
         assert!(overflow.iter().any(|item| item.side == "right"));
     }
 }

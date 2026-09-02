@@ -78,7 +78,7 @@ struct CheckArgs {
     )]
     overflow_tolerance: f64,
 
-    /// Skip the color-operator heuristic for syntax highlighting
+    /// Skip checking matched code-fence text for syntax color
     #[arg(long)]
     no_highlight_check: bool,
 }

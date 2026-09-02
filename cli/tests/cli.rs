@@ -123,6 +123,170 @@ fn positioned_text_pdf(
     doc.save(path).unwrap();
 }
 
+fn unrelated_color_pdf(path: &std::path::Path) {
+    let mut doc = Document::with_version("1.5");
+    let font = doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"
+    });
+    let resources = doc.add_object(dictionary! {
+        "Font" => dictionary! { "F1" => font }
+    });
+    let content = Content {
+        operations: vec![
+            Operation::new("rg", vec![0.into(), 0.into(), 1.into()]),
+            Operation::new("re", vec![36.into(), 740.into(), 24.into(), 24.into()]),
+            Operation::new("f", vec![]),
+            Operation::new("BT", vec![]),
+            Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), 12.into()]),
+            Operation::new(
+                "Tm",
+                vec![
+                    1.into(),
+                    0.into(),
+                    0.into(),
+                    1.into(),
+                    72.into(),
+                    740.into(),
+                ],
+            ),
+            Operation::new("Tj", vec![Object::string_literal("Release guide")]),
+            Operation::new("ET", vec![]),
+            Operation::new("rg", vec![0.into(), 0.into(), 0.into()]),
+            Operation::new("BT", vec![]),
+            Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), 12.into()]),
+            Operation::new(
+                "Tm",
+                vec![
+                    1.into(),
+                    0.into(),
+                    0.into(),
+                    1.into(),
+                    72.into(),
+                    700.into(),
+                ],
+            ),
+            Operation::new("Tj", vec![Object::string_literal("fn main() {}")]),
+            Operation::new("ET", vec![]),
+        ],
+    };
+    let content = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+    let pages = doc.new_object_id();
+    let page = doc.add_object(dictionary! {
+        "Type" => "Page", "Parent" => pages, "Contents" => content,
+        "Resources" => resources, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()]
+    });
+    doc.objects.insert(
+        pages,
+        Object::Dictionary(dictionary! {
+            "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1
+        }),
+    );
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    doc.trailer.set("Root", catalog);
+    doc.compress();
+    doc.save(path).unwrap();
+}
+
+fn helvetica_text_pdf(path: &std::path::Path, text: &str, x: i64) {
+    let mut doc = Document::with_version("1.5");
+    let font = doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"
+    });
+    let resources = doc.add_object(dictionary! {
+        "Font" => dictionary! { "F1" => font }
+    });
+    let content = Content {
+        operations: vec![
+            Operation::new("rg", vec![0.into(), 0.into(), Object::Real(0.7)]),
+            Operation::new("BT", vec![]),
+            Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), 12.into()]),
+            Operation::new(
+                "Tm",
+                vec![1.into(), 0.into(), 0.into(), 1.into(), x.into(), 700.into()],
+            ),
+            Operation::new("Tj", vec![Object::string_literal(text)]),
+            Operation::new("ET", vec![]),
+        ],
+    };
+    let content = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+    let pages = doc.new_object_id();
+    let page = doc.add_object(dictionary! {
+        "Type" => "Page", "Parent" => pages, "Contents" => content,
+        "Resources" => resources, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()]
+    });
+    doc.objects.insert(
+        pages,
+        Object::Dictionary(dictionary! {
+            "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1
+        }),
+    );
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    doc.trailer.set("Root", catalog);
+    doc.compress();
+    doc.save(path).unwrap();
+}
+
+fn embedded_metric_text_pdf(
+    path: &std::path::Path,
+    text: &str,
+    x: i64,
+    glyph_width: i64,
+    text_scale: i64,
+) {
+    let mut doc = Document::with_version("1.5");
+    let descriptor = doc.add_object(dictionary! {
+        "Type" => "FontDescriptor", "FontName" => "VerifierMono",
+        "Flags" => 33, "FontBBox" => vec![(-50).into(), (-200).into(), 1000.into(), 800.into()],
+        "ItalicAngle" => 0, "Ascent" => 800, "Descent" => -200,
+        "CapHeight" => 700, "StemV" => 80, "MissingWidth" => glyph_width
+    });
+    let code = i64::from(text.as_bytes()[0]);
+    let font = doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "VerifierMono",
+        "FirstChar" => code, "LastChar" => code, "Widths" => vec![glyph_width.into()],
+        "FontDescriptor" => descriptor, "Encoding" => "WinAnsiEncoding"
+    });
+    let resources = doc.add_object(dictionary! {
+        "Font" => dictionary! { "F1" => font }
+    });
+    let content = Content {
+        operations: vec![
+            Operation::new("rg", vec![0.into(), 0.into(), Object::Real(0.7)]),
+            Operation::new("BT", vec![]),
+            Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), 12.into()]),
+            Operation::new(
+                "Tm",
+                vec![
+                    text_scale.into(),
+                    0.into(),
+                    0.into(),
+                    1.into(),
+                    x.into(),
+                    700.into(),
+                ],
+            ),
+            Operation::new("Tj", vec![Object::string_literal(text)]),
+            Operation::new("ET", vec![]),
+        ],
+    };
+    let content = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+    let pages = doc.new_object_id();
+    let page = doc.add_object(dictionary! {
+        "Type" => "Page", "Parent" => pages, "Contents" => content,
+        "Resources" => resources, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()]
+    });
+    doc.objects.insert(
+        pages,
+        Object::Dictionary(dictionary! {
+            "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1
+        }),
+    );
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    doc.trailer.set("Root", catalog);
+    doc.compress();
+    doc.save(path).unwrap();
+}
+
 fn assert_page_overflow(x: i64, y: i64, crop_box: Option<[i64; 4]>, side: &str) {
     let temp = tempfile::tempdir().unwrap();
     let markdown = temp.path().join("manual.md");
@@ -495,6 +659,121 @@ fn missing_syntax_color_warns_and_respects_warning_policy() {
 }
 
 #[test]
+fn unrelated_blue_graphic_does_not_mask_black_code() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("blue-graphic-black-code.pdf");
+    fs::write(&markdown, "# Manual\n```rust\nfn main() {}\n```\n").unwrap();
+    unrelated_color_pdf(&pdf);
+
+    for (deny_warnings, expected_exit) in [(false, 0), (true, 1)] {
+        let proof = temp.path().join(format!("proof-{deny_warnings}"));
+        let mut command = Command::cargo_bin("codeproof").unwrap();
+        command.args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ]);
+        if deny_warnings {
+            command.arg("--deny-warnings");
+        }
+        command
+            .assert()
+            .code(expected_exit)
+            .stdout(predicate::str::contains("code.highlight-not-detected"));
+    }
+}
+
+#[test]
+fn helvetica_metrics_detect_wide_glyph_overflow_without_narrow_false_positive() {
+    let temp = tempfile::tempdir().unwrap();
+    for (text, x, expected_exit, expected_code) in [
+        ("WWWWWW", 550, 1, "geometry.text-overflow"),
+        ("iiiiii", 580, 0, "\"findings\": []"),
+    ] {
+        let markdown = temp.path().join(format!("{text}.md"));
+        let pdf = temp.path().join(format!("{text}.pdf"));
+        let proof = temp.path().join(format!("proof-{text}"));
+        fs::write(&markdown, format!("# Manual\n```text\n{text}\n```\n")).unwrap();
+        helvetica_text_pdf(&pdf, text, x);
+
+        Command::cargo_bin("codeproof")
+            .unwrap()
+            .args([
+                "check",
+                markdown.to_str().unwrap(),
+                "--pdf",
+                pdf.to_str().unwrap(),
+                "--out",
+                proof.to_str().unwrap(),
+                "--json",
+            ])
+            .assert()
+            .code(expected_exit)
+            .stdout(predicate::str::contains(expected_code));
+    }
+}
+
+#[test]
+fn embedded_widths_and_text_matrices_drive_page_geometry() {
+    let temp = tempfile::tempdir().unwrap();
+    for (name, text, x, width, scale, expected_exit, expected_code) in [
+        (
+            "embedded-wide",
+            "WWWWWW",
+            550,
+            944,
+            1,
+            1,
+            "geometry.text-overflow",
+        ),
+        (
+            "embedded-narrow",
+            "iiiiii",
+            580,
+            222,
+            1,
+            0,
+            "\"findings\": []",
+        ),
+        (
+            "transformed-wide",
+            "WW",
+            592,
+            500,
+            2,
+            1,
+            "geometry.text-overflow",
+        ),
+    ] {
+        let markdown = temp.path().join(format!("{name}.md"));
+        let pdf = temp.path().join(format!("{name}.pdf"));
+        let proof = temp.path().join(format!("proof-{name}"));
+        fs::write(&markdown, format!("# Manual\n```text\n{text}\n```\n")).unwrap();
+        embedded_metric_text_pdf(&pdf, text, x, width, scale);
+
+        Command::cargo_bin("codeproof")
+            .unwrap()
+            .args([
+                "check",
+                markdown.to_str().unwrap(),
+                "--pdf",
+                pdf.to_str().unwrap(),
+                "--out",
+                proof.to_str().unwrap(),
+                "--json",
+            ])
+            .assert()
+            .code(expected_exit)
+            .stdout(predicate::str::contains(expected_code));
+    }
+}
+
+#[test]
 fn missing_source_is_an_operational_error() {
     Command::cargo_bin("codeproof")
         .unwrap()
@@ -771,6 +1050,44 @@ fn valid_multiple_fragment_destinations_pass() {
         .assert()
         .success()
         .stdout(predicate::str::contains("\"passed\": true"));
+}
+
+#[test]
+fn setext_and_pandoc_explicit_heading_ids_resolve_pdf_fragments() {
+    let temp = tempfile::tempdir().unwrap();
+    let pdf = temp.path().join("manual.pdf");
+    fixture_pdf(&pdf, &["retry-policy"], &["retry-policy"]);
+
+    for (name, source) in [
+        (
+            "setext",
+            "Retry policy\n------------\n[Retry](#retry-policy)\n```rust\nfn main() {}\n```\n",
+        ),
+        (
+            "pandoc-id",
+            "## Retry behavior {#retry-policy}\n[Retry](#retry-policy)\n```rust\nfn main() {}\n```\n",
+        ),
+    ] {
+        let markdown = temp.path().join(format!("{name}.md"));
+        let proof = temp.path().join(format!("proof-{name}"));
+        fs::write(&markdown, source).unwrap();
+        Command::cargo_bin("codeproof")
+            .unwrap()
+            .args([
+                "check",
+                markdown.to_str().unwrap(),
+                "--pdf",
+                pdf.to_str().unwrap(),
+                "--out",
+                proof.to_str().unwrap(),
+                "--json",
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\"passed\": true"))
+            .stdout(predicate::str::contains("\"pages\": 1"))
+            .stdout(predicate::str::contains("\"pdf_link_annotations\": 1"));
+    }
 }
 
 #[test]

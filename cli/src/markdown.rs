@@ -1,5 +1,8 @@
 use std::collections::HashSet;
+use std::ops::Range;
 use std::path::Path;
+
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 
 use crate::report::{Finding, Severity};
 
@@ -18,14 +21,6 @@ pub struct SourceContract {
     pub findings: Vec<Finding>,
 }
 
-struct ActiveFence {
-    line: usize,
-    marker: char,
-    width: usize,
-    language: Option<String>,
-    lines: Vec<String>,
-}
-
 pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
     let mut contract = SourceContract::default();
     if source.trim().is_empty() {
@@ -39,59 +34,73 @@ pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
         return contract;
     }
 
-    let mut active: Option<ActiveFence> = None;
-    for (offset, raw) in source.lines().enumerate() {
-        let line_no = offset + 1;
-        let trimmed = raw.trim_start();
-        if let Some(open) = &mut active {
-            let closing = trimmed.chars().take_while(|c| *c == open.marker).count();
-            if closing >= open.width && trimmed[closing..].trim().is_empty() {
-                contract.fences.push(Fence {
-                    line: open.line,
-                    language: open.language.take(),
-                    lines: std::mem::take(&mut open.lines),
-                });
-                active = None;
-            } else {
-                open.lines.push(raw.to_owned());
-            }
-            continue;
-        }
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+    let mut active_heading: Option<(Option<String>, String)> = None;
+    let mut active_fence: Option<(usize, Option<String>, String)> = None;
 
-        let marker = trimmed.chars().next().unwrap_or(' ');
-        if marker == '`' || marker == '~' {
-            let width = trimmed.chars().take_while(|c| *c == marker).count();
-            if width >= 3 {
-                let info = trimmed[width..].trim();
+    for (event, range) in Parser::new_ext(source, options).into_offset_iter() {
+        match event {
+            Event::Start(Tag::Heading { id, .. }) => {
+                active_heading = Some((id.map(|value| value.into_string()), String::new()));
+            }
+            Event::End(TagEnd::Heading(_)) => {
+                if let Some((explicit_id, text)) = active_heading.take() {
+                    let target = explicit_id.unwrap_or_else(|| pandoc_slugify(&text));
+                    if !target.is_empty() {
+                        contract.headings.insert(normalize_fragment(&target));
+                    }
+                }
+            }
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
                 let language = info
                     .split_whitespace()
                     .next()
-                    .filter(|s| !s.is_empty())
+                    .filter(|value| !value.is_empty())
                     .map(str::to_owned);
-                active = Some(ActiveFence {
-                    line: line_no,
-                    marker,
-                    width,
-                    language,
-                    lines: Vec::new(),
-                });
-                continue;
+                active_fence = Some((line_number(source, range), language, String::new()));
             }
+            Event::Text(text) if active_fence.is_some() => {
+                if let Some((_, _, body)) = &mut active_fence {
+                    body.push_str(&text);
+                }
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                if let Some((line, language, body)) = active_fence.take() {
+                    let mut lines = body.lines().map(str::to_owned).collect::<Vec<_>>();
+                    if body.ends_with('\n') && lines.last().is_some_and(String::is_empty) {
+                        lines.pop();
+                    }
+                    contract.fences.push(Fence {
+                        line,
+                        language,
+                        lines,
+                    });
+                }
+            }
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                if let Some(target) = dest_url.strip_prefix('#').filter(|value| !value.is_empty()) {
+                    contract
+                        .internal_links
+                        .push((line_number(source, range), normalize_fragment(target)));
+                }
+            }
+            Event::Text(text) | Event::Code(text) if active_heading.is_some() => {
+                if let Some((_, heading)) = &mut active_heading {
+                    heading.push_str(&text);
+                }
+            }
+            _ => {}
         }
-
-        if let Some(text) = heading_text(trimmed) {
-            contract.headings.insert(slugify(text));
-        }
-        extract_fragment_links(raw, line_no, &mut contract.internal_links);
     }
 
-    if let Some(open) = active {
+    if let Some(line) = unclosed_fence_line(source) {
         contract.findings.push(Finding::new(
             "source.unclosed-fence",
             Severity::Error,
-            format!("Code fence opened on line {} is not closed", open.line),
+            format!("Code fence opened on line {line} is not closed"),
             "Close the fence before rendering the PDF.",
-            Some(open.line),
+            Some(line),
         ));
     }
 
@@ -119,20 +128,22 @@ pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
     contract
 }
 
-fn heading_text(line: &str) -> Option<&str> {
-    let marks = line.chars().take_while(|c| *c == '#').count();
-    if (1..=6).contains(&marks) && line.as_bytes().get(marks) == Some(&b' ') {
-        Some(line[marks + 1..].trim_end_matches('#').trim())
-    } else {
-        None
-    }
+fn line_number(source: &str, range: Range<usize>) -> usize {
+    source[..range.start.min(source.len())]
+        .bytes()
+        .filter(|byte| *byte == b'\n')
+        .count()
+        + 1
 }
 
-fn slugify(value: &str) -> String {
+/// Pandoc's `auto_identifiers` rule: keep letters, digits, `_`, `-`, and `.`,
+/// turn whitespace into `-`, lowercase, then discard everything before the
+/// first letter. Explicit `{#id}` attributes bypass this derivation.
+fn pandoc_slugify(value: &str) -> String {
     let mut out = String::new();
     let mut dash = false;
     for ch in value.to_lowercase().chars() {
-        if ch.is_alphanumeric() || ch == '_' || ch == '-' {
+        if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '.' {
             if dash && !out.is_empty() && !out.ends_with('-') {
                 out.push('-');
             }
@@ -142,23 +153,39 @@ fn slugify(value: &str) -> String {
             dash = true;
         }
     }
-    out.trim_matches('-').to_owned()
+    let out = out.trim_matches('-');
+    out.char_indices()
+        .find(|(_, ch)| ch.is_alphabetic())
+        .map(|(index, _)| out[index..].to_owned())
+        .unwrap_or_else(|| "section".to_owned())
 }
 
-fn extract_fragment_links(line: &str, line_no: usize, output: &mut Vec<(usize, String)>) {
-    let mut rest = line;
-    while let Some(start) = rest.find("](#") {
-        let target_start = start + 3;
-        if let Some(end) = rest[target_start..].find(')') {
-            let raw = &rest[target_start..target_start + end];
-            if !raw.is_empty() {
-                output.push((line_no, raw.to_lowercase()));
+fn normalize_fragment(value: &str) -> String {
+    value.to_lowercase()
+}
+
+fn unclosed_fence_line(source: &str) -> Option<usize> {
+    let mut open: Option<(usize, char, usize)> = None;
+    for (offset, raw) in source.lines().enumerate() {
+        let indent = raw.len() - raw.trim_start_matches(' ').len();
+        if indent > 3 {
+            continue;
+        }
+        let trimmed = &raw[indent..];
+        if let Some((_, marker, width)) = open {
+            let closing = trimmed.chars().take_while(|ch| *ch == marker).count();
+            if closing >= width && trimmed[closing..].trim().is_empty() {
+                open = None;
             }
-            rest = &rest[target_start + end + 1..];
         } else {
-            break;
+            let marker = trimmed.chars().next().unwrap_or(' ');
+            let width = trimmed.chars().take_while(|ch| *ch == marker).count();
+            if (marker == '`' || marker == '~') && width >= 3 {
+                open = Some((offset + 1, marker, width));
+            }
         }
     }
+    open.map(|(line, _, _)| line)
 }
 
 #[cfg(test)]
@@ -190,5 +217,17 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn parses_commonmark_setext_and_pandoc_heading_ids() {
+        let source = "Retry policy\n------------\n[Setext](#retry-policy)\n\n## Retry behavior {#retry-explicit}\n[Explicit](#retry-explicit)\n";
+        let contract = parse_markdown(Path::new("manual.md"), source);
+        assert!(contract
+            .findings
+            .iter()
+            .all(|finding| finding.severity != Severity::Error));
+        assert!(contract.headings.contains("retry-policy"));
+        assert!(contract.headings.contains("retry-explicit"));
     }
 }

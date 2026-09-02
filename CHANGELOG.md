@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Scope syntax-color evidence to the PDF text matching each code fence.
+- Calculate text bounds from PDF font widths and text transformation matrices.
+- Parse CommonMark Setext headings and Pandoc explicit heading IDs.
+- Add regressions for unrelated color, proportional glyph widths, transforms,
+  and both newly supported heading forms.
+
 ## 0.1.0 — unreleased repair
 
 - Reject one-line code fences painted across multiple PDF baselines.

@@ -65,9 +65,23 @@ warnings.
   must open a page in the finished PDF.
 - Code fence text must remain present and keep its line breaks. One source line
   fails if it wraps in the PDF.
-- Text is checked against every visible PDF page edge.
-- A language-tagged code fence warns when Code Proof cannot detect syntax
-  color.
+- Text is checked against every visible PDF page edge using the PDF font's
+  widths and text transforms. Standard PDF font metrics cover base fonts.
+- Each language-tagged code fence warns when its matching PDF text has no
+  syntax color. Colored headings, links, logos, and graphics do not count.
+
+### Heading fragments
+
+Code Proof parses CommonMark ATX (`# Heading`) and Setext headings. Pandoc
+explicit IDs such as `## Retry behavior {#retry-policy}` define the fragment
+directly. Fragment matching is case-insensitive.
+
+Without an explicit ID, Code Proof follows Pandoc's automatic identifier
+rules. Formatting and most punctuation are removed. Spaces become hyphens.
+Letters become lowercase. Leading non-letters are removed. Use explicit IDs
+for repeated headings or when a custom renderer uses different fragment rules.
+The final check still requires the same PDF link annotation and named
+destination.
 
 Run `codeproof check --help` for command options.
 
