@@ -1,4 +1,27 @@
-# Code Proof handoff — perfection loop round 2
+# Code Proof handoff — verification 7
+
+## Current result: PASS
+
+- Candidate commit: `63abecedf6c38bea914bbf2c4fb4485cf37a0923`
+- Verified URL: <https://markdown-pdf-code-proof.sociobot.in>
+- Demo: <https://markdown-pdf-code-proof.sociobot.in/?demo=1#demo>
+- Full evidence: `.factory/verification-7.md`
+
+All 20 claimed behaviors passed from a clean checkout. `npm test` passed 3
+unit tests, 21 CLI integration tests, and 13 browser tests; typecheck, lint,
+production build, Rust 1.88, package creation, and clean Git installation also
+passed. A separately installed packaged consumer ran the bundled demo and
+produced its isolated HOLD proof; invalid paths return the documented exit 2.
+
+The live 13-test Playwright audit passed. It confirmed same-origin/no-tracking
+demo requests, no console or page errors, offline reload/service-worker update,
+keyboard and visible focus, 390px layout, reduced motion, axe with no serious
+or critical findings, Privacy/Terms/404 behavior, headers, and caching. Local
+and live files matched byte-for-byte. Lighthouse mobile: 98 performance and
+100 accessibility, best-practices, and SEO. No defects remain and no product
+code changed during verification.
+
+## Prior builder handoff
 
 ## Result: PASS
 
