@@ -1,44 +1,81 @@
-# Code Proof adversarial review 4 handoff
+# Code Proof polish 4 handoff
 
-## Result: FAIL
+## Result
 
-Reviewed candidate: `dfc16a75cd20fb222d78460d56f62e3c2ef42fb0`.
-Live URL: <https://markdown-pdf-code-proof.sociobot.in/>.
+PASS. Repair commit `7adcd759514d4a01b54e529cedd9483a7c96c954` closes every
+finding in reviews 1–4. It was pushed to `origin/main` and deployed to
+<https://markdown-pdf-code-proof.sociobot.in/> as Azure Static Web Apps
+deployment `51082c09-a8b2-4d00-b44f-ca1f1070abef`.
 
-The review found seven issues: one blocking, one high, four medium, and one
-minor. Blocking finding F-1-26 is a regression: the live element labelled
-“Recorded Code Proof terminal output” and the README do not match the release
-binary's actual demo output. The remaining findings cover an unlisted merge
-claim, Reset focus loss, and four plain-language issues.
+The site keeps the release-room risograph design and the product remains a
+Rust CLI with static Vite documentation. No backend, analytics, AI service,
+payment integration, or new infrastructure was added.
 
-See [review-4.md](review-4.md) for the exact quotes, reproduction evidence,
-complete landing/README copy audit, all claim results, and the finding-by-
-finding history check.
+## What changed
 
-## Verification performed
+- The failed decision is exactly `HOLD — do not release` in CLI summaries,
+  README prose, and generated HTML proof sheets.
+- `scripts/generate-demo-transcript.mjs` runs the real bundled CLI demo during
+  every site build. It normalizes only the temporary path and generates the
+  four browser transcript lines in `site/src/demo-transcript.ts`.
+- `@claim:demo-transcript` runs the CLI again in a fresh directory and compares
+  every displayed line. The full diagnostic is no longer shortened.
+- Reset demo remains focusable during replay, blocks duplicate activation with
+  `aria-disabled`, exposes `aria-busy`, and retains focus through completion.
+- Added the `code-lines-merge` claim and its exact existing CLI regression.
+- Replaced the remaining “source,” “code colors,” “non-default PDF color,” and
+  generic result wording with Markdown, syntax color, and HTML proof sheet.
+- Added dynamic demo description/Open Graph metadata, route metadata
+  regressions, stronger legal/footer checks, direct `?demo=1` coverage, and a
+  real-storage sentinel test for demo isolation.
+- Updated the copy audit, demo documentation, catalog line, changelog, and
+  service-worker cache version.
 
-- Fresh 390×844 and 1440×900 live first reads and screenshots.
-- Browser demo entry, Reset, exit, Back/Forward, request log, console log, and
-  pre-seeded real-storage sentinel check.
-- Real release-binary `codeproof demo` from a fresh temporary directory.
-- All 21 `claims.json` entries run separately from a clean clone: 21 PASS.
-- `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`, and locked
-  `cargo package`: PASS.
-- Live Playwright suite: 13/13 PASS.
-- Fleet URL verifier: PASS.
-- Route metadata, 404, headers, sitemap, robots, asset dimensions, all internal
-  fragments, and all linked destinations checked.
-- Live HTML, JavaScript, and CSS hashes match the clean production build.
+## Verification
 
-## Changes made
+Fresh remote clone: `/tmp/codeproof-polish4-claims.ADF5zK/repo`, exact SHA
+`7adcd759514d4a01b54e529cedd9483a7c96c954`.
 
-Only `.factory/review-4.md` and this handoff were written. Product code,
-deployment, infrastructure, DNS, billing, and external resources were not
-modified.
+- Every `.factory/claims.json` command ran separately: 23/23 passed. The Git
+  install claim installed remote revision `7adcd759` into an empty root.
+- `npm test`: passed; 3 Rust unit tests, 22 CLI integration tests, 19 browser
+  tests, copy/transcript freshness, Rust 1.88, and MIT checks.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed with rustfmt and Clippy warnings denied.
+- `npm run build`: passed; JS 4.32 kB raw / 1.81 kB gzip, CSS 11.26 kB raw /
+  3.37 kB gzip, and the hero WebP is 210,844 bytes.
+- `cargo package --manifest-path cli/Cargo.toml --locked`: passed and verified
+  a 33.5 KiB compressed crate.
+- Cold live Playwright: 19/19 passed, including Axe during demo transitions,
+  direct demo routing, Reset focus, privacy sentinels, offline reload, mobile,
+  route metadata, legal navigation, and the designed 404.
+- Fleet URL verifier: passed at 791 ms with no console errors, one H1, `lang`,
+  main landmark, alt text, and labelled buttons.
+- Live `index.html` SHA-256 matches the local build:
+  `ab16dcc89f47fabae535fa07e91276b81ea6a3dbd6e320934ddf6f3225e705ff`.
+- Mobile Lighthouse: Performance 99, Accessibility 100, Best Practices 100,
+  SEO 100; LCP 1,814 ms, TBT 0 ms, CLS 0.
 
-## Next steps
+Evidence is in `evidence/polish-4-live/`: desktop/mobile landing screenshots,
+the direct demo screenshot, URL-verifier output, and Lighthouse JSON. The full
+finding map is `.factory/polish-4.md`.
 
-Fix F-1-26 first by deriving the browser transcript from real CLI output and
-testing the match. Then address F-4-1 through F-4-6 and rerun the complete
-review. Do not mark the candidate accepted until a fresh round has zero
-findings.
+## Run and verify
+
+```sh
+npm ci
+npm test
+npm run typecheck
+npm run lint
+npm run build
+cargo package --manifest-path cli/Cargo.toml --locked
+```
+
+Run the isolated CLI sample with `target/release/codeproof demo`. Open the
+isolated browser sample at
+<https://markdown-pdf-code-proof.sociobot.in/?demo=1>.
+
+## Known gaps and next steps
+
+None. All recorded findings are closed and all required gates pass locally,
+from a clean clone, and on the deployed site.
