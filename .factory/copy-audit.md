@@ -33,7 +33,7 @@ banned marketing word.
 | 5 | Check Markdown PDFs before release. |
 | 7 | The docs and recorded proof still work. |
 | 3 | Proof run started. |
-| 8 | Proof run complete: hold, with one expected error. |
+| 7 | Proof run complete: one expected defect found. |
 | 2 | Demo opened. |
 | 9 | Sample data is active and nothing is saved. |
 | 3 | Install commands opened. |

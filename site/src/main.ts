@@ -41,7 +41,7 @@ const runDemo = () => {
       line.classList.add('revealed');
       if (index === demoLines.length - 1) {
         if (replay) replay.disabled = false;
-        if (demoStatus) demoStatus.textContent = 'Proof run complete: hold, with one expected error.';
+        if (demoStatus) demoStatus.textContent = 'Proof run complete: one expected defect found.';
       }
     }, reduceMotion ? 0 : 250 * (index + 1));
   });
