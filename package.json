@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "test": "npm run test:copy-audit && npm run test:msrv && cargo test --workspace && npm run test:site && npm run test:license",
+    "test": "npm run test:demo-transcript && npm run test:copy-audit && npm run test:msrv && cargo test --workspace && npm run test:site && npm run test:license",
+    "generate:demo-transcript": "node scripts/generate-demo-transcript.mjs",
+    "test:demo-transcript": "node scripts/generate-demo-transcript.mjs --check",
     "test:copy-audit": "node scripts/audit-copy.mjs --check",
     "test:msrv": "node scripts/check-msrv.mjs",
     "test:site": "npm run build:site && playwright test",
@@ -15,7 +17,7 @@
     "lint": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",
     "build": "npm run build:cli && npm run build:site",
     "build:cli": "cargo build --workspace --release",
-    "build:site": "vite build && node scripts/finalize-site.mjs"
+    "build:site": "npm run generate:demo-transcript && vite build && node scripts/finalize-site.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",

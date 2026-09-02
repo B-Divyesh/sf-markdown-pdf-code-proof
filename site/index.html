@@ -10,6 +10,7 @@
     <link rel="icon" href="/proof-mark.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <meta property="og:type" content="website">
+    <meta property="og:url" content="https://markdown-pdf-code-proof.sociobot.in/">
     <meta property="og:title" content="Code Proof — inspect Markdown PDFs before release">
     <meta property="og:description" content="Check a finished Markdown PDF for broken code, page overflow, and internal links before release.">
     <meta property="og:image" content="https://markdown-pdf-code-proof.sociobot.in/code-proof-social.jpg">
@@ -64,13 +65,13 @@
       <section class="workflow" aria-labelledby="workflow-title">
         <div class="section-intro">
           <p class="eyebrow">How it works</p>
-          <h2 id="workflow-title">Check the source against the PDF.</h2>
+          <h2 id="workflow-title">Check Markdown against the finished PDF.</h2>
           <p>Code Proof compares your Markdown with the finished PDF. It writes an HTML proof sheet for review.</p>
         </div>
         <ol class="galley">
           <li><span class="number">01</span><div><h3>Create or choose the PDF</h3><p>Check an existing PDF, or use a custom renderer command. Renderer arguments never pass through a shell.</p></div></li>
-          <li><span class="number">02</span><div><h3>Check the finished PDF</h3><p>Check links, code colors, and text that runs outside the page. Match each code fence with the PDF.</p></div></li>
-          <li><span class="number">03</span><div><h3>Review the result</h3><p>Open the HTML proof sheet, save a JSON report in CI, and use exit codes to stop a broken release.</p></div></li>
+          <li><span class="number">02</span><div><h3>Check the finished PDF</h3><p>Check links, syntax color, and text that runs outside the page. Match each code fence with the PDF.</p></div></li>
+          <li><span class="number">03</span><div><h3>Review the HTML proof sheet</h3><p>Open the HTML proof sheet. Save the JSON report in CI. Use exit codes to stop a broken release.</p></div></li>
         </ol>
       </section>
 
@@ -79,14 +80,11 @@
         <div class="demo-heading">
           <div><p class="eyebrow">Sample check</p><h2 id="demo-title" tabindex="-1">Sample failed release check</h2></div>
         </div>
-        <div class="terminal" aria-label="Recorded Code Proof terminal output">
+        <div class="terminal" aria-label="Recorded Code Proof terminal output" aria-busy="false">
           <div class="terminal-bar"><span>codeproof demo</span><span>local sample</span></div>
           <pre tabindex="0"><code><span class="prompt">$</span> codeproof demo
 
-<strong class="demo-line" data-step="1">DEMO HOLD — do not release — 1 expected defect found</strong>
-<span class="line demo-line defect" data-step="2">ERROR  [code.flow-changed] source line 7</span>
-<span class="line demo-line" data-step="3">Sample workspace: /tmp/codeproof-demo-…</span>
-<span class="line demo-line" data-step="4">HTML proof sheet: /tmp/codeproof-demo-…/proof/index.html</span></code></pre>
+<span id="demo-output"></span></code></pre>
           <div class="terminal-footer"><span>Expected exit 1</span><span>Bundled sample only</span></div>
         </div>
         <p class="sr-only" id="demo-status" aria-live="polite"></p>

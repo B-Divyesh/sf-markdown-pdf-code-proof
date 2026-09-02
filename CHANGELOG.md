@@ -17,6 +17,11 @@ All notable changes follow Keep a Changelog. This project uses Semantic Versioni
 
 ### Fixed
 
+- Generate the browser sample transcript from the real bundled CLI demo and
+  keep the failed release wording identical in terminal and HTML output.
+- Preserve keyboard focus while Reset demo replays the sample.
+- Register the two-lines-merged PDF failure as a release claim.
+- Use Markdown, syntax color, and HTML proof sheet consistently in public copy.
 - Preserve painted PDF baselines when checking fenced code, so source lines
   flattened into a paragraph are a failing `code.flow-changed` defect.
 - Align the documented Rust minimum with the locked dependency floor and

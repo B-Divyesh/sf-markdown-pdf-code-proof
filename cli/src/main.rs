@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use clap::{Args, Parser, Subcommand};
 use codeproof::render;
-use codeproof::report::{write_html, Report, Severity};
+use codeproof::report::{write_html, Report, Severity, FAILED_DECISION};
 use codeproof::{inspect_pdf, parse_markdown};
 
 #[derive(Parser)]
@@ -145,7 +145,7 @@ fn demo(args: DemoArgs) -> Result<bool, String> {
         if report.summary.passed {
             "PASS"
         } else {
-            "HOLD"
+            FAILED_DECISION
         },
         report.summary.errors,
         if report.summary.errors == 1 { "" } else { "s" }
@@ -251,7 +251,7 @@ fn print_report(report: &Report, json: bool) -> Result<(), String> {
         if report.summary.passed {
             "PASS"
         } else {
-            "HOLD"
+            FAILED_DECISION
         },
         report.summary.pages,
         report.summary.code_fences,

@@ -887,9 +887,11 @@ fn demo_uses_bundled_sample_data_and_writes_an_isolated_proof() {
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
-            "DEMO HOLD — 1 expected defect found",
+            "DEMO HOLD — do not release — 1 expected defect found",
         ))
-        .stdout(predicate::str::contains("code.flow-changed"))
+        .stdout(predicate::str::contains(
+            "  Error [code.flow-changed] Code fence on line 7 is present but its line flow changed",
+        ))
         .stdout(predicate::str::contains(format!(
             "Sample workspace: {}",
             workspace.display()
@@ -902,6 +904,6 @@ fn demo_uses_bundled_sample_data_and_writes_an_isolated_proof() {
     );
     assert!(workspace.join("sample-manual.pdf").is_file());
     let proof = fs::read_to_string(workspace.join("proof/index.html")).unwrap();
-    assert!(proof.contains("HOLD"));
+    assert!(proof.contains("HOLD — do not release"));
     assert!(proof.contains("code.flow-changed"));
 }

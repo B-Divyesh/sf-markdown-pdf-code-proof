@@ -2,6 +2,8 @@ use std::path::Path;
 
 use serde::Serialize;
 
+pub const FAILED_DECISION: &str = "HOLD — do not release";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
@@ -119,7 +121,7 @@ pub fn write_html(report: &Report, output: &Path) -> Result<(), String> {
     let status = if report.summary.passed {
         "PASS"
     } else {
-        "HOLD"
+        FAILED_DECISION
     };
     let findings = if report.findings.is_empty() {
         "<li class=\"empty\"><strong>No defects found.</strong><span>The PDF contract passed every enabled check.</span></li>".to_owned()

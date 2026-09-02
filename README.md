@@ -24,7 +24,7 @@ codeproof demo
 
 The command creates an isolated temporary workspace and prints its HTML proof
 sheet path. Its bundled sample contains a wrapped code fence line. It returns
-exit `1` with `HOLD — do not release`.
+exit `1` and prints `DEMO HOLD — do not release — 1 expected defect found`.
 
 Keep artifacts in a chosen directory:
 
@@ -66,7 +66,8 @@ warnings.
 - Code fence text must remain present and keep its line breaks. One source line
   fails if it wraps in the PDF.
 - Text is checked against every visible PDF page edge.
-- A language-tagged code fence warns when no non-default PDF color is found.
+- A language-tagged code fence warns when Code Proof cannot detect syntax
+  color.
 
 Run `codeproof check --help` for command options.
 

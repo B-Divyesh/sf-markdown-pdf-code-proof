@@ -43,7 +43,7 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 1 | → |
 | 2 | Release PDF |
 | 3 | How it works |
-| 6 | Check the source against the PDF. |
+| 6 | Check Markdown against the finished PDF. |
 | 9 | Code Proof compares your Markdown with the finished PDF. |
 | 8 | It writes an HTML proof sheet for review. |
 | 1 | 01 |
@@ -52,11 +52,13 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 7 | Renderer arguments never pass through a shell. |
 | 1 | 02 |
 | 4 | Check the finished PDF |
-| 11 | Check links, code colors, and text that runs outside the page. |
+| 11 | Check links, syntax color, and text that runs outside the page. |
 | 7 | Match each code fence with the PDF. |
 | 1 | 03 |
-| 3 | Review the result |
-| 20 | Open the HTML proof sheet, save a JSON report in CI, and use exit codes to stop a broken release. |
+| 5 | Review the HTML proof sheet |
+| 5 | Open the HTML proof sheet. |
+| 6 | Save the JSON report in CI. |
+| 8 | Use exit codes to stop a broken release. |
 | 7 | Demo — sample data, nothing is saved |
 | 2 | Reset demo |
 | 3 | View install commands |
@@ -66,10 +68,6 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 2 | local sample |
 | 1 | $ |
 | 2 | codeproof demo |
-| 11 | DEMO HOLD — do not release — 1 expected defect found |
-| 5 | ERROR [code.flow-changed] source line 7 |
-| 3 | Sample workspace: /tmp/codeproof-demo-… |
-| 4 | HTML proof sheet: /tmp/codeproof-demo-…/proof/index.html |
 | 3 | Expected exit 1 |
 | 3 | Bundled sample only |
 | 4 | Checks in version 0.1 |
@@ -134,6 +132,15 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 
 | Words | Copy |
 | ---: | --- |
+| 1 | meta[property="og:title"] |
+| 1 | meta[property="og:description"] |
+| 1 | meta[property="og:url"] |
+| 1 | meta[name="twitter:title"] |
+| 1 | meta[name="twitter:description"] |
+| 8 | Code Proof — inspect Markdown PDFs before release |
+| 15 | Check a finished Markdown PDF for broken code, page overflow, and internal links before release. |
+| 4 | Demo — Code Proof |
+| 12 | Run the bundled Code Proof sample and review its expected PDF defect. |
 | 3 | Copied to clipboard |
 | 2 | Copied: [value] |
 | 3 | Copy install command |
@@ -142,11 +149,18 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 4 | Select this command: [value] |
 | 3 | Proof run started. |
 | 7 | Proof run complete: one expected defect found. |
-| 4 | Demo — Code Proof |
 | 2 | Demo opened. |
 | 8 | Sample data is active and nothing is saved. |
-| 8 | Code Proof — inspect Markdown PDFs before release |
 | 3 | Install commands opened. |
+
+## Generated CLI demo transcript
+
+| Words | Copy |
+| ---: | --- |
+| 11 | DEMO HOLD — do not release — 1 expected defect found |
+| 14 |   Error [code.flow-changed] Code fence on line 7 is present but its line flow changed |
+| 3 | Sample workspace: /tmp/codeproof-demo-… |
+| 4 | HTML proof sheet: /tmp/codeproof-demo-…/proof/index.html |
 
 ## README prose
 
@@ -163,7 +177,7 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 8 | Run a complete check without your own files: |
 | 14 | The command creates an isolated temporary workspace and prints its HTML proof sheet path. |
 | 9 | Its bundled sample contains a wrapped code fence line. |
-| 10 | It returns exit `1` with `HOLD — do not release`. |
+| 17 | It returns exit `1` and prints `DEMO HOLD — do not release — 1 expected defect found`. |
 | 6 | Keep artifacts in a chosen directory: |
 | 1 | Usage |
 | 8 | Check an existing PDF without starting a renderer: |
@@ -181,7 +195,7 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 11 | Code fence text must remain present and keep its line breaks. |
 | 10 | One source line fails if it wraps in the PDF. |
 | 9 | Text is checked against every visible PDF page edge. |
-| 12 | A language-tagged code fence warns when no non-default PDF color is found. |
+| 12 | A language-tagged code fence warns when Code Proof cannot detect syntax color. |
 | 7 | Run `codeproof check --help` for command options. |
 | 2 | Renderer safety |
 | 10 | Code Proof applies its Linux sandbox before a renderer starts. |
@@ -217,4 +231,5 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 
 `npm run test:copy-audit` regenerates this output in memory and compares it
 byte-for-byte with this checked-in file. It also checks the 22-word limit,
-banned-word list, and the exact registered source-integrity claim test.
+banned-word list, required terminology, generated CLI transcript, and the
+exact registered source-integrity claim test.

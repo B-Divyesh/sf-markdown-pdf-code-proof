@@ -1,4 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -18,6 +21,16 @@ test('@claim:private-site landing and sample stay local and leave no tracking da
   await expect(page.locator('h1')).toContainText('Catch PDF bugs before release');
   await expect(page.getByRole('link', { name: /Try it with sample data/ })).toBeVisible();
   await expect(page.locator('img[alt]')).toHaveCount(1);
+  await page.evaluate(() => {
+    localStorage.setItem('real:sentinel', 'keep-local');
+    sessionStorage.setItem('real:session', 'keep-session');
+    document.cookie = 'real_sentinel=keep-cookie; path=/; SameSite=Lax';
+  });
+  const storedBefore = await page.evaluate(() => ({
+    local: Object.fromEntries(Object.entries(localStorage)),
+    session: Object.fromEntries(Object.entries(sessionStorage)),
+    cookie: document.cookie
+  }));
   await page.getByRole('link', { name: /Try it with sample data/ }).click();
   const startingResults = await new AxeBuilder({ page }).analyze();
   expect(startingResults.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
@@ -25,10 +38,19 @@ test('@claim:private-site landing and sample stay local and leave no tracking da
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await expect(page.locator('#demo-status')).toContainText('Proof run complete', { timeout: 4000 });
+  await page.getByRole('link', { name: 'View install commands' }).click();
   expect(errors).toEqual([]);
   expect([...origins]).toEqual([new URL(page.url()).origin]);
-  expect(await context.cookies()).toEqual([]);
-  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
+  expect(await page.evaluate(() => ({
+    local: Object.fromEntries(Object.entries(localStorage)),
+    session: Object.fromEntries(Object.entries(sessionStorage)),
+    cookie: document.cookie
+  }))).toEqual(storedBefore);
+  expect((await context.cookies()).map(({ name, value }) => ({ name, value }))).toEqual([
+    { name: 'real_sentinel', value: 'keep-cookie' }
+  ]);
 });
 
 test('skip link is the first keyboard stop and reaches main content', async ({ page }) => {
@@ -48,6 +70,7 @@ test('sample demo is one click away and reports completion', async ({ page }) =>
   await expect(page.locator('#demo-title')).toBeFocused();
   await expect(page.locator('#demo-status')).toContainText('Proof run complete', { timeout: 4000 });
   await expect(page.getByText('DEMO HOLD — do not release — 1 expected defect found')).toBeVisible();
+  await expect(page.getByText('Error [code.flow-changed] Code fence on line 7 is present but its line flow changed')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reset demo' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'View install commands' })).toBeVisible();
   await page.getByRole('link', { name: 'View install commands' }).click();
@@ -62,13 +85,47 @@ test('sample demo is one click away and reports completion', async ({ page }) =>
   await expect(page.locator('#install-title')).toBeFocused();
 });
 
+test('direct demo query opens the isolated sample with route focus', async ({ page }) => {
+  await page.goto('/?demo=1');
+  await expect(page).toHaveTitle('Demo — Code Proof');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/\?demo=1$/);
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Demo — Code Proof');
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', /\/\?demo=1$/);
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reset demo' })).toBeVisible();
+  await expect(page.locator('#demo-title')).toBeFocused();
+});
+
+test('@claim:demo-transcript browser sample matches the real CLI output', async ({ page }) => {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'codeproof-browser-transcript-'));
+  const workspace = join(temporaryRoot, 'workspace');
+  try {
+    const result = spawnSync('cargo', [
+      'run', '--quiet', '--locked', '--manifest-path', 'cli/Cargo.toml', '--',
+      'demo', '--out', workspace
+    ], { encoding: 'utf8' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe('');
+    const expected = result.stdout.trimEnd().replaceAll(workspace, '/tmp/codeproof-demo-…');
+
+    await page.goto('/?demo=1#demo');
+    await expect(page.locator('#demo-status')).toContainText('Proof run complete', { timeout: 4000 });
+    expect(await page.locator('#demo-output').textContent()).toBe(expected);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('keyboard and reduced-motion users receive demo feedback', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?demo=1#demo');
   const reset = page.getByRole('button', { name: 'Reset demo' });
   await reset.focus();
   await page.keyboard.press('Space');
+  await expect(reset).toBeFocused();
   await expect(page.locator('#demo-status')).toContainText('Proof run complete');
+  await expect(reset).toBeFocused();
+  await expect(reset).toHaveAttribute('aria-disabled', 'false');
   const motion = await page.evaluate(() => ({
     animation: getComputedStyle(document.querySelector('.press-art')!).animationDuration,
     transition: getComputedStyle(document.querySelector('.demo-line')!).transitionDuration,
@@ -123,6 +180,8 @@ test('user-facing copy keeps one plain term for each output and check', async ({
   await expect(page.locator('#demo-title')).toHaveText('Sample failed release check');
   await expect(page.getByRole('heading', { name: 'Missing or wrapped code' })).toBeVisible();
   await expect(page.getByText('Warns when a language-tagged code fence has no detectable syntax color.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Check Markdown against the finished PDF.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Review the HTML proof sheet' })).toBeVisible();
 
   const landing = await page.locator('body').innerText();
   const readme = await readFile('README.md', 'utf8');
@@ -138,7 +197,11 @@ test('user-facing copy keeps one plain term for each output and check', async ({
     'seccomp',
     'cargo install --path cli',
     '`npm test` runs',
-    '`npm run build` creates'
+    '`npm run build` creates',
+    'Check the source against the PDF',
+    'code colors',
+    'Review the result',
+    'non-default PDF color'
   ]) {
     expect(publicCopy, `obsolete public wording: ${obsolete}`).not.toContain(obsolete);
   }
@@ -172,7 +235,7 @@ test('worker installs with production-only deployment files unavailable', async 
   const shell = await page.evaluate(async () => (await fetch('/sw.js')).text());
   expect(shell).not.toContain('staticwebapp.config.json');
   const caches = await page.evaluate(async () => (await caches.keys()).filter((name) => name.startsWith('code-proof-')));
-  expect(caches).toEqual(['code-proof-v4']);
+  expect(caches).toEqual(['code-proof-v5']);
   const update = await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.getRegistration();
     await registration?.update();
@@ -188,6 +251,29 @@ for (const path of ['/privacy/', '/terms/']) {
     await expect(page.locator('h1')).toHaveCount(1);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? ''))).toEqual([]);
+  });
+}
+
+for (const route of [
+  { path: '/', title: 'Code Proof — inspect Markdown PDFs before release', canonical: '/' },
+  { path: '/?demo=1', title: 'Demo — Code Proof', canonical: '/?demo=1' },
+  { path: '/privacy/', title: 'Privacy — Code Proof', canonical: '/privacy/' },
+  { path: '/terms/', title: 'Terms — Code Proof', canonical: '/terms/' }
+]) {
+  test(`${route.path} has route metadata and complete legal navigation`, async ({ page }) => {
+    await page.goto(route.path);
+    await expect(page).toHaveTitle(route.title);
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /\S/);
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', route.title);
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', new RegExp(`${route.canonical.replace(/[?]/g, '\\?')}$`));
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${route.canonical.replace(/[?]/g, '\\?')}$`));
+    await expect(page.locator('main')).toHaveCount(1);
+    await expect(page.locator('h1')).toHaveCount(1);
+    const footer = page.locator('footer');
+    for (const name of ['Home', 'Privacy', 'Terms']) {
+      await expect(footer.getByRole('link', { name, exact: true })).toBeVisible();
+    }
+    await expect(footer.getByRole('link', { name: 'GitHub (external site)' })).toBeVisible();
   });
 }
 

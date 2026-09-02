@@ -86,7 +86,7 @@ h3 { font: 700 23px/1.2 var(--display); margin: 0 0 8px; }
 .demo-heading { display: flex; justify-content: space-between; align-items: end; gap: 32px; margin-bottom: 48px; }
 .replay { min-height: 48px; padding: 10px 16px; border: 2px solid var(--sheet); background: transparent; color: var(--sheet); cursor: pointer; font: 800 13px var(--mono); text-transform: uppercase; }
 .replay:hover { background: var(--sheet); color: var(--blue-dark); }
-.replay:disabled { opacity: .6; cursor: wait; }
+.replay[aria-disabled="true"] { opacity: .6; cursor: wait; }
 .terminal { border: 3px solid var(--ink); background: #161a19; color: #f8f0dc; box-shadow: 9px 9px 0 var(--red); font-family: var(--mono); }
 .terminal-bar, .terminal-footer { display: flex; justify-content: space-between; padding: 12px 16px; background: var(--sheet); color: var(--ink); font: 800 11px var(--mono); text-transform: uppercase; }
 .terminal pre { min-height: 340px; margin: 0; padding: 32px; overflow-x: auto; font: 15px/1.8 var(--mono); }
