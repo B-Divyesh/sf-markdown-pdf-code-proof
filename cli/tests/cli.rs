@@ -187,10 +187,10 @@ fn unrelated_color_pdf(path: &std::path::Path) {
     doc.save(path).unwrap();
 }
 
-fn helvetica_text_pdf(path: &std::path::Path, text: &str, x: i64) {
+fn standard_font_text_pdf(path: &std::path::Path, base_font: &str, text: &str, x: i64) {
     let mut doc = Document::with_version("1.5");
     let font = doc.add_object(dictionary! {
-        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"
+        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => base_font
     });
     let resources = doc.add_object(dictionary! {
         "Font" => dictionary! { "F1" => font }
@@ -689,17 +689,47 @@ fn unrelated_blue_graphic_does_not_mask_black_code() {
 }
 
 #[test]
-fn helvetica_metrics_detect_wide_glyph_overflow_without_narrow_false_positive() {
+fn helvetica_and_courier_width_tables_drive_page_geometry() {
     let temp = tempfile::tempdir().unwrap();
-    for (text, x, expected_exit, expected_code) in [
-        ("WWWWWW", 550, 1, "geometry.text-overflow"),
-        ("iiiiii", 580, 0, "\"findings\": []"),
+    for (name, base_font, text, x, expected_exit, expected_code) in [
+        (
+            "helvetica-wide",
+            "Helvetica",
+            "WWWWWW",
+            550,
+            1,
+            "geometry.text-overflow",
+        ),
+        (
+            "helvetica-narrow",
+            "Helvetica",
+            "iiiiii",
+            580,
+            0,
+            "\"findings\": []",
+        ),
+        (
+            "courier-overflow",
+            "Courier",
+            "WWWWWW",
+            575,
+            1,
+            "geometry.text-overflow",
+        ),
+        (
+            "courier-fit",
+            "Courier",
+            "iiiiii",
+            560,
+            0,
+            "\"findings\": []",
+        ),
     ] {
-        let markdown = temp.path().join(format!("{text}.md"));
-        let pdf = temp.path().join(format!("{text}.pdf"));
-        let proof = temp.path().join(format!("proof-{text}"));
+        let markdown = temp.path().join(format!("{name}.md"));
+        let pdf = temp.path().join(format!("{name}.pdf"));
+        let proof = temp.path().join(format!("proof-{name}"));
         fs::write(&markdown, format!("# Manual\n```text\n{text}\n```\n")).unwrap();
-        helvetica_text_pdf(&pdf, text, x);
+        standard_font_text_pdf(&pdf, base_font, text, x);
 
         Command::cargo_bin("codeproof")
             .unwrap()
@@ -1053,12 +1083,16 @@ fn valid_multiple_fragment_destinations_pass() {
 }
 
 #[test]
-fn setext_and_pandoc_explicit_heading_ids_resolve_pdf_fragments() {
+fn atx_setext_and_pandoc_explicit_heading_ids_resolve_pdf_fragments() {
     let temp = tempfile::tempdir().unwrap();
     let pdf = temp.path().join("manual.pdf");
     fixture_pdf(&pdf, &["retry-policy"], &["retry-policy"]);
 
     for (name, source) in [
+        (
+            "atx",
+            "# Retry policy\n[Retry](#retry-policy)\n```rust\nfn main() {}\n```\n",
+        ),
         (
             "setext",
             "Retry policy\n------------\n[Retry](#retry-policy)\n```rust\nfn main() {}\n```\n",
@@ -1087,6 +1121,72 @@ fn setext_and_pandoc_explicit_heading_ids_resolve_pdf_fragments() {
             .stdout(predicate::str::contains("\"passed\": true"))
             .stdout(predicate::str::contains("\"pages\": 1"))
             .stdout(predicate::str::contains("\"pdf_link_annotations\": 1"));
+    }
+}
+
+#[test]
+fn fragment_matching_ignores_letter_case() {
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let pdf = temp.path().join("manual.pdf");
+    let proof = temp.path().join("proof");
+    fs::write(
+        &markdown,
+        "# Retry Policy\n[Retry](#RETRY-POLICY)\n```rust\nfn main() {}\n```\n",
+    )
+    .unwrap();
+    fixture_pdf(&pdf, &["ReTrY-PoLiCy"], &["rEtRy-pOlIcY"]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            pdf.to_str().unwrap(),
+            "--out",
+            proof.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"passed\": true"));
+}
+
+#[test]
+fn automatic_heading_ids_follow_documented_rules() {
+    let temp = tempfile::tempdir().unwrap();
+    for (name, heading, expected_target) in [
+        ("formatting", "# *Retry* `policy`", "retry-policy"),
+        ("retained", "# API_v2.0-beta", "api_v2.0-beta"),
+        ("spaces-and-case", "# Retry Policy", "retry-policy"),
+        ("leading-number", "# 2. Retry", "retry"),
+        ("leading-punctuation", "# — Retry", "retry"),
+    ] {
+        let markdown = temp.path().join(format!("{name}.md"));
+        let pdf = temp.path().join(format!("{name}.pdf"));
+        let proof = temp.path().join(format!("proof-{name}"));
+        fs::write(
+            &markdown,
+            format!("{heading}\n[Open](#{expected_target})\n```rust\nfn main() {{}}\n```\n"),
+        )
+        .unwrap();
+        fixture_pdf(&pdf, &[expected_target], &[expected_target]);
+
+        Command::cargo_bin("codeproof")
+            .unwrap()
+            .args([
+                "check",
+                markdown.to_str().unwrap(),
+                "--pdf",
+                pdf.to_str().unwrap(),
+                "--out",
+                proof.to_str().unwrap(),
+                "--json",
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\"passed\": true"));
     }
 }
 

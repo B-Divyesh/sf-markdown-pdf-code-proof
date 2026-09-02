@@ -1,8 +1,9 @@
 # Code Proof
 
-Code Proof checks code-heavy Markdown manuals before PDF release. It compares
-your Markdown with a finished PDF and writes an HTML proof sheet. Code Proof
-does not edit the supplied Markdown source.
+Code Proof helps engineers and technical writers check code-heavy Markdown
+manuals before PDF release. It compares your Markdown with a finished PDF and
+writes an HTML proof sheet. Code Proof does not edit the supplied Markdown
+source.
 
 Live docs: <https://markdown-pdf-code-proof.sociobot.in>
 
@@ -49,7 +50,7 @@ codeproof check manual.md \
   --out proof
 ```
 
-Write a JSON report for CI:
+Write a JSON report for continuous integration (CI):
 
 ```sh
 codeproof check manual.md --pdf manual.pdf --json > proof.json
@@ -66,20 +67,21 @@ warnings.
 - Code fence text must remain present and keep its line breaks. One source line
   fails if it wraps in the PDF.
 - Text is checked against every visible PDF page edge using the PDF font's
-  widths and text transforms. Standard PDF font metrics cover base fonts.
+  widths and text transforms. Built-in width tables cover Helvetica and
+  Courier.
 - Each language-tagged code fence warns when its matching PDF text has no
-  syntax color. Colored headings, links, logos, and graphics do not count.
+  syntax color. Unrelated colored headings and graphics do not count.
 
 ### Heading fragments
 
-Code Proof parses CommonMark ATX (`# Heading`) and Setext headings. Pandoc
+Code Proof recognizes `# Heading` and underlined Markdown headings. Pandoc
 explicit IDs such as `## Retry behavior {#retry-policy}` define the fragment
-directly. Fragment matching is case-insensitive.
+directly. Link target matching ignores letter case.
 
-Without an explicit ID, Code Proof follows Pandoc's automatic identifier
-rules. Formatting and most punctuation are removed. Spaces become hyphens.
-Letters become lowercase. Leading non-letters are removed. Use explicit IDs
-for repeated headings or when a custom renderer uses different fragment rules.
+Without an explicit ID, heading formatting marks are ignored. Automatic IDs
+keep letters, numbers, underscores, hyphens, and periods. Spaces become
+hyphens. Letters become lowercase. Characters before the first letter are
+dropped. Use explicit IDs for repeated headings or different renderer rules.
 The final check still requires the same PDF link annotation and named
 destination.
 
@@ -109,6 +111,10 @@ cargo package --manifest-path cli/Cargo.toml --locked
 
 The site uses Vite and vanilla TypeScript. Run it locally with `npm run dev`.
 Build the static deployment with `npm run build:site`.
+
+Deploy `dist/site/` as the static site root. Keep
+`staticwebapp.config.json` there so Azure Static Web Apps applies the security
+headers and 404 response.
 
 ## Project status
 

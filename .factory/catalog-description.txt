@@ -1,1 +1,1 @@
-Catch broken code, page overflow, and internal-link defects in Markdown PDFs before release.
+Catch code, page overflow, and link defects before releasing a Markdown PDF.

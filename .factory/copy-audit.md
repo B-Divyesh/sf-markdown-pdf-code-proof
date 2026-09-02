@@ -6,7 +6,9 @@ prose. Counts use whitespace-delimited words. Regenerate with
 
 Every captured sentence and visible fragment is 22 words or fewer. The audit
 also rejects the factory's banned marketing words. README source-integrity copy
-is covered by the `input-unchanged` claim and its exact CLI fixture test.
+is covered by the `input-unchanged` claim and its exact CLI fixture test. It
+also validates the exact claim tests for public font, heading, color, offline,
+privacy, routing, and license promises.
 
 ## Landing page copy
 
@@ -27,12 +29,12 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 1 | ↓ |
 | 8 | See a sample PDF defect and failed check. |
 | 3 | Copy install command |
-| 2 | Sample included |
-| 6 | No files needed to try it |
+| 2 | Works offline |
+| 4 | After the first visit |
 | 2 | Site privacy |
 | 3 | No tracking data |
-| 2 | MIT license |
-| 3 | Read the license |
+| 2 | Free software |
+| 2 | MIT licensed |
 | 2 | Original artwork |
 | 4 | Code and page inspection |
 | 2 | Markdown source |
@@ -57,7 +59,7 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 1 | 03 |
 | 5 | Review the HTML proof sheet |
 | 5 | Open the HTML proof sheet. |
-| 6 | Save the JSON report in CI. |
+| 8 | Save the JSON report in continuous integration (CI). |
 | 8 | Use exit codes to stop a broken release. |
 | 7 | Demo — sample data, nothing is saved |
 | 2 | Reset demo |
@@ -167,7 +169,7 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | Words | Copy |
 | ---: | --- |
 | 2 | Code Proof |
-| 9 | Code Proof checks code-heavy Markdown manuals before PDF release. |
+| 14 | Code Proof helps engineers and technical writers check code-heavy Markdown manuals before PDF release. |
 | 14 | It compares your Markdown with a finished PDF and writes an HTML proof sheet. |
 | 9 | Code Proof does not edit the supplied Markdown source. |
 | 3 | Live docs: <https://markdown-pdf-code-proof.sociobot.in> |
@@ -183,7 +185,7 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 8 | Check an existing PDF without starting a renderer: |
 | 6 | Use a compatible custom renderer command. |
 | 9 | `{input}` and `{output}` become individual arguments, never shell input: |
-| 6 | Write a JSON report for CI: |
+| 8 | Write a JSON report for continuous integration (CI): |
 | 4 | Exit `0` means pass. |
 | 4 | Exit `1` means defects. |
 | 8 | Exit `2` means the check could not finish. |
@@ -195,19 +197,19 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 11 | Code fence text must remain present and keep its line breaks. |
 | 10 | One source line fails if it wraps in the PDF. |
 | 17 | Text is checked against every visible PDF page edge using the PDF font's widths and text transforms. |
-| 7 | Standard PDF font metrics cover base fonts. |
+| 7 | Built-in width tables cover Helvetica and Courier. |
 | 14 | Each language-tagged code fence warns when its matching PDF text has no syntax color. |
-| 9 | Colored headings, links, logos, and graphics do not count. |
+| 8 | Unrelated colored headings and graphics do not count. |
 | 2 | Heading fragments |
-| 10 | Code Proof parses CommonMark ATX (`# Heading`) and Setext headings. |
+| 9 | Code Proof recognizes `# Heading` and underlined Markdown headings. |
 | 13 | Pandoc explicit IDs such as `## Retry behavior {#retry-policy}` define the fragment directly. |
-| 4 | Fragment matching is case-insensitive. |
-| 11 | Without an explicit ID, Code Proof follows Pandoc's automatic identifier rules. |
-| 6 | Formatting and most punctuation are removed. |
+| 6 | Link target matching ignores letter case. |
+| 9 | Without an explicit ID, heading formatting marks are ignored. |
+| 9 | Automatic IDs keep letters, numbers, underscores, hyphens, and periods. |
 | 3 | Spaces become hyphens. |
 | 3 | Letters become lowercase. |
-| 4 | Leading non-letters are removed. |
-| 15 | Use explicit IDs for repeated headings or when a custom renderer uses different fragment rules. |
+| 7 | Characters before the first letter are dropped. |
+| 10 | Use explicit IDs for repeated headings or different renderer rules. |
 | 13 | The final check still requires the same PDF link annotation and named destination. |
 | 7 | Run `codeproof check --help` for command options. |
 | 2 | Renderer safety |
@@ -222,6 +224,8 @@ is covered by the `input-unchanged` claim and its exact CLI fixture test.
 | 7 | The site uses Vite and vanilla TypeScript. |
 | 7 | Run it locally with `npm run dev`. |
 | 8 | Build the static deployment with `npm run build:site`. |
+| 7 | Deploy `dist/site/` as the static site root. |
+| 15 | Keep `staticwebapp.config.json` there so Azure Static Web Apps applies the security headers and 404 response. |
 | 2 | Project status |
 | 2 | Version 0.1.0. |
 | 2 | See CHANGELOG.md. |

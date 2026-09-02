@@ -137,6 +137,16 @@ const banned = allCopy.flatMap((entry) => bannedWords
   .map((word) => `${word}: ${entry}`));
 const claims = JSON.parse(claimsText);
 const inputClaim = claims.find((claim) => claim.id === 'input-unchanged');
+const claimIds = claims.map((claim) => claim.id);
+
+if (new Set(claimIds).size !== claimIds.length) {
+  throw new Error('claim IDs must be unique');
+}
+for (const claim of claims) {
+  if (!claim.claim || !claim.where || !claim.test || !claim.sandbox) {
+    throw new Error(`claim ${claim.id} must define claim, where, test, and sandbox`);
+  }
+}
 
 if (!clean(readme).includes('Code Proof does not edit the supplied Markdown source.')) {
   throw new Error('README must state the registered source-integrity contract exactly.');
@@ -144,11 +154,34 @@ if (!clean(readme).includes('Code Proof does not edit the supplied Markdown sour
 if (!inputClaim || inputClaim.test !== 'cargo test --test cli input_files_remain_unchanged_in_existing_pdf_and_custom_renderer_checks -- --exact') {
   throw new Error('The source-integrity promise must have its exact input-unchanged claim test.');
 }
+const requiredClaims = new Map([
+  ['syntax-color', 'cargo test --test cli unrelated_blue_graphic_does_not_mask_black_code -- --exact'],
+  ['font-metrics', 'cargo test --test cli embedded_widths_and_text_matrices_drive_page_geometry -- --exact'],
+  ['standard-font-widths', 'cargo test --test cli helvetica_and_courier_width_tables_drive_page_geometry -- --exact'],
+  ['heading-fragments', 'cargo test --test cli atx_setext_and_pandoc_explicit_heading_ids_resolve_pdf_fragments -- --exact'],
+  ['fragment-case', 'cargo test --test cli fragment_matching_ignores_letter_case -- --exact'],
+  ['automatic-heading-ids', 'cargo test --test cli automatic_heading_ids_follow_documented_rules -- --exact'],
+  ['private-site', 'npm run test:site -- --grep @claim:private-site'],
+  ['offline-reload', 'npm run test:site -- --grep @claim:offline-reload'],
+  ['static-routing', 'npm run test:site -- --grep @claim:static-routing'],
+  ['mit-license', 'npm run test:license']
+]);
+for (const [id, test] of requiredClaims) {
+  const entry = claims.find((claim) => claim.id === id);
+  if (!entry || entry.test !== test) {
+    throw new Error(`public promise ${id} must have its exact claim test`);
+  }
+}
 const requiredTerms = [
   'Check Markdown against the finished PDF.',
   'Check links, syntax color, and text that runs outside the page.',
   'Review the HTML proof sheet',
-  'Each language-tagged code fence warns when its matching PDF text has no syntax color.'
+  'Each language-tagged code fence warns when its matching PDF text has no syntax color.',
+  'Built-in width tables cover Helvetica and Courier.',
+  'Link target matching ignores letter case.',
+  'Works offline',
+  'Site privacy',
+  'Free software'
 ];
 for (const required of requiredTerms) {
   if (!allCopy.includes(required)) throw new Error(`required public wording is missing: ${required}`);
@@ -174,7 +207,9 @@ prose. Counts use whitespace-delimited words. Regenerate with
 
 Every captured sentence and visible fragment is 22 words or fewer. The audit
 also rejects the factory's banned marketing words. README source-integrity copy
-is covered by the \`input-unchanged\` claim and its exact CLI fixture test.
+is covered by the \`input-unchanged\` claim and its exact CLI fixture test. It
+also validates the exact claim tests for public font, heading, color, offline,
+privacy, routing, and license promises.
 
 ## Landing page copy
 

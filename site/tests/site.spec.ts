@@ -147,7 +147,7 @@ test('390px layout keeps primary paths available', async ({ page }) => {
   await expect(page.getByRole('link', { name: /Try it with sample data/ })).toBeVisible();
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
-  for (const label of ['Sample included', 'Site privacy', 'MIT license']) {
+  for (const label of ['Works offline', 'Site privacy', 'Free software']) {
     const box = await page.getByText(label, { exact: true }).boundingBox();
     expect(box?.y, `${label} stays in the first viewport`).toBeLessThan(844);
   }
@@ -235,13 +235,43 @@ test('worker installs with production-only deployment files unavailable', async 
   const shell = await page.evaluate(async () => (await fetch('/sw.js')).text());
   expect(shell).not.toContain('staticwebapp.config.json');
   const caches = await page.evaluate(async () => (await caches.keys()).filter((name) => name.startsWith('code-proof-')));
-  expect(caches).toEqual(['code-proof-v5']);
+  expect(caches).toEqual(['code-proof-v6']);
   const update = await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.getRegistration();
     await registration?.update();
     return { installing: Boolean(registration?.installing), waiting: Boolean(registration?.waiting) };
   });
   expect(update).toEqual({ installing: false, waiting: false });
+});
+
+test('@claim:static-routing deployment headers and 404 fallback are active', async ({ request }) => {
+  const root = await request.get('/');
+  expect(root.status()).toBe(200);
+  expect(root.headers()['content-security-policy']).toContain("default-src 'self'");
+  expect(root.headers()['x-content-type-options']).toBe('nosniff');
+  expect(root.headers()['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  expect(root.headers()['permissions-policy']).toContain('camera=()');
+
+  const missing = await request.get('/missing-proof-from-claim');
+  expect(missing.status()).toBe(404);
+  expect(await missing.text()).toContain('This page was not found.');
+});
+
+test('stable-name images use short revalidating cache policies', async ({ request }) => {
+  const config = JSON.parse(await readFile('site/public/staticwebapp.config.json', 'utf8')) as {
+    routes: Array<{ route: string; headers?: Record<string, string> }>;
+  };
+  for (const pattern of ['/*.webp', '/*.jpg', '/*.png']) {
+    const cacheControl = config.routes.find((route) => route.route === pattern)?.headers?.['Cache-Control'];
+    expect(cacheControl).toBe('public, max-age=3600, must-revalidate');
+  }
+  for (const path of ['/code-proof-press.webp', '/code-proof-social.jpg', '/apple-touch-icon.png']) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['cache-control']).not.toContain('immutable');
+    const maxAge = Number(response.headers()['cache-control']?.match(/max-age=(\d+)/)?.[1]);
+    expect(maxAge).toBeLessThanOrEqual(3600);
+  }
 });
 
 for (const path of ['/privacy/', '/terms/']) {
