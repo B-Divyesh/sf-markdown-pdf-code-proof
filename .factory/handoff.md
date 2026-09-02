@@ -1,43 +1,44 @@
-# Code Proof handoff — independent verification 6
+# Code Proof handoff — adversarial first-read review 2
 
-## Result: PASS
+## Result: FAIL
 
-- Candidate: `774749fdccdefcdc23607b4d7254061f9bf1a542`
+- Candidate: `f1474e5871a1c5c28d4e9967c8f9476a41f20a79`
 - Live URL: <https://markdown-pdf-code-proof.sociobot.in>
-- Verified: 2026-09-02 UTC
-- Defects: 0 critical, 0 high, 0 medium, 0 low
+- Reviewed: 2026-09-02 UTC
+- Product code changed: no
 
-Independent verification found no release-blocking defect. The cold first
-screen explains the job and audience and offers a one-click sample. All 20
-claim tests pass. The complete local test, type, lint, build, package, and
-clean-consumer install gates pass. The live site matches the candidate build
-byte for byte.
+The full report is `.factory/review-2.md`. It records eight findings: one
+blocking, three high, and four medium. The blocker is inherited F-1-26: the
+live copy still uses “blocks” for “code fence” and a bare “report” label after
+the previous repair claimed those terms were standardized.
 
-Live desktop, 390 px mobile, keyboard, focus, reduced motion, Axe, privacy,
-headers, caching, offline reload, service-worker update, routes, metadata, and
-links pass. Lighthouse mobile scored 99 performance and 100 for accessibility,
-best practices, and SEO; LCP was 1.8 s, TBT 0 ms, and CLS 0.
+The live first screen, one-click browser demo, real CLI demo, privacy behavior,
+routing, metadata, links, accessibility, visual identity, and all 20 registered
+claims otherwise passed. The live deployment matched the clean candidate build
+byte for byte for all checked site files.
 
-Full commands, claim-by-claim evidence, hashes, measurements, and applicability
-notes are in `.factory/verification-6.md`. No product code was changed.
+## Verification run
 
-## Reproduce
+From a clean clone at the candidate commit:
 
 ```sh
 npm ci
+# Every test command in .factory/claims.json, separately: 20/20 passed
 npm test
 npm run typecheck
 npm run lint
 npm run build
-npm run test:install
 cargo package --manifest-path cli/Cargo.toml --locked
 ```
 
-Deploy `dist/site/` only through the factory deployment workflow. Publish the
-crate only through the factory registry workflow; this verifier did neither.
+The real `codeproof demo` command also ran from a fresh temporary directory. It
+returned the intentional exit 1 and wrote its bundled Markdown, generated PDF,
+and HOLD proof sheet under a separate `/tmp/codeproof-demo-*` workspace.
+`/opt/fleet/lib/verify-url.sh` passed against the live root. Live Axe checks at
+390 px and desktop, including the demo transition, found no violations.
 
-## Known gaps and next steps
+## Required next work
 
-No release-blocking or follow-up product gaps were found. Normal post-release
-maintenance is to keep dependencies, the Rust 1.88 contract, and the recorded
-PDF fixtures current.
+Fix the eight findings in `.factory/review-2.md`, especially F-1-26. Add claim
+coverage or remove the three unlisted README promises. Then rerun the entire
+cold review rather than only the changed copy.
