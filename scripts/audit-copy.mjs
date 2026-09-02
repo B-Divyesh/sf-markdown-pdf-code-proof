@@ -173,15 +173,30 @@ for (const [id, test] of requiredClaims) {
   }
 }
 const requiredTerms = [
+  'Code Proof helps engineers and technical writers check code-heavy Markdown manuals before PDF release.',
   'Check Markdown against the finished PDF.',
   'Check links, syntax color, and text that runs outside the page.',
   'Review the HTML proof sheet',
+  'Save the JSON report in continuous integration (CI).',
+  'Write a JSON report for continuous integration (CI):',
   'Each language-tagged code fence warns when its matching PDF text has no syntax color.',
+  'Unrelated colored headings and graphics do not count.',
   'Built-in width tables cover Helvetica and Courier.',
+  'Code Proof recognizes `# Heading` and underlined Markdown headings.',
   'Link target matching ignores letter case.',
+  'Without an explicit ID, heading formatting marks are ignored.',
+  'Automatic IDs keep letters, numbers, underscores, hyphens, and periods.',
+  'Spaces become hyphens.',
+  'Letters become lowercase.',
+  'Characters before the first letter are dropped.',
+  'Deploy `dist/site/` as the static site root.',
+  'Keep `staticwebapp.config.json` there so Azure Static Web Apps applies the security headers and 404 response.',
   'Works offline',
+  'After the first visit',
   'Site privacy',
-  'Free software'
+  'No tracking data',
+  'Free software',
+  'MIT licensed'
 ];
 for (const required of requiredTerms) {
   if (!allCopy.includes(required)) throw new Error(`required public wording is missing: ${required}`);
