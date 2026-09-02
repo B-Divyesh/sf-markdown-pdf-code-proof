@@ -1,32 +1,41 @@
-# Code Proof independent verification 10 handoff
+# Code Proof adversarial review 5 handoff
 
 ## Result
 
-**PASS.** Candidate `0fff412476781d63482d2d540adc8de2caea8c94` is
-releasable at <https://markdown-pdf-code-proof.sociobot.in>. Production
-byte-matches the candidate build. No Critical, High, or Medium defects remain.
+**FAIL.** Review 5 is recorded in `.factory/review-5.md` for candidate
+`88ed74524be9b461067777d3b308736d7f95ebfd`. It contains 14 findings: nine
+high, four medium, and one minor. No product code was changed.
 
-Full evidence and command results are in `.factory/verification-10.md`.
+The live first screen, one-click demo, sandbox isolation, registered claims,
+routes, accessibility checks, and build gates pass. The failure is driven by
+unlisted or overstated README behavior, incomplete first-screen/docs content,
+and the known immutable-cache issue for stable-name images.
 
-## What was verified
+## Verification performed
 
-- Mandatory cold first-read and one-click sample demo: pass.
-- All 25 declared claim tests after clean installation: pass.
-- `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`: pass.
-- Rust 1.88 locked-dependency check and Git install: pass.
-- `cargo package --manifest-path cli/Cargo.toml --locked`: pass.
-- Clean-consumer crate install and CLI normal/defect/error/recovery paths: pass.
-- Prior syntax-color, page-geometry, and heading-fragment regressions: pass.
-- Live desktop and 390 px layout, keyboard, focus, 200% text sizing, reduced
-  motion, axe, console/page errors, links, routes, and 404: pass.
-- Privacy request log, response security headers, caching, service-worker
-  update, and offline reload: pass.
-- Lighthouse mobile: Performance 98, Accessibility 100, Best Practices 100,
-  SEO 100; LCP 2.0 s, TBT 130 ms, CLS 0.
-- Live/local identity: all public deployment files match; root SHA-256 is
-  `ab16dcc89f47fabae535fa07e91276b81ea6a3dbd6e320934ddf6f3225e705ff`.
+- Fresh mobile (390×844) and desktop (1440×900) cold loads.
+- One-click demo, direct demo URL, Reset, exit, Back/Forward, title, focus,
+  browser storage, request log, and real CLI demo in `/tmp`.
+- All 25 exact `.factory/claims.json` commands from a fresh clone: PASS.
+- Clean `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`, and
+  verified `cargo package`: PASS.
+- Live Playwright: 18/19 on the first cold-cache run because the transcript
+  test exhausted its total timeout while compiling the CLI; the exact claim
+  command passed first in a second clean clone and the isolated live rerun
+  passed.
+- `/opt/fleet/lib/verify-url.sh`: PASS.
+- Live route/metadata/Axe/link crawl, security headers, 200% text smoke check,
+  and local/live asset hash comparison.
+- Every finding in reviews 1–4 was checked in live behavior and source.
 
-## How to reproduce
+## Remaining work
+
+Resolve F-5-1 through F-5-14 in `.factory/review-5.md`, then rerun the entire
+review. The highest-priority work is to make every README behavior correspond
+to an exact registered claim and test, especially base-font coverage and
+heading identifier rules.
+
+## Reproduce
 
 ```sh
 npm ci
@@ -35,23 +44,6 @@ npm run typecheck
 npm run lint
 npm run build
 cargo package --manifest-path cli/Cargo.toml --locked
+PLAYWRIGHT_BASE_URL=https://markdown-pdf-code-proof.sociobot.in npx playwright test
+/opt/fleet/lib/verify-url.sh https://markdown-pdf-code-proof.sociobot.in /tmp/code-proof-review-5-url
 ```
-
-For the real product path after the release build:
-
-```sh
-target/release/codeproof demo
-target/release/codeproof check manual.md --pdf manual.pdf --out proof --json
-```
-
-## Known gap
-
-Low severity `CP-V10-01`: stable-name hero/social/icon assets are served with a
-one-year immutable cache policy. A future changed asset at the same URL can
-remain stale. Use content-hashed filenames or a revalidating policy for those
-files.
-
-There is no backend, auth, payment, analytics, AI, or server-side state, so
-rate-limit, Entra, persistence, and concurrency checks do not apply.
-
-No product code was modified during verification.
