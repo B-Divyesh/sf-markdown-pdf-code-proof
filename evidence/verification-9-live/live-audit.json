@@ -1,0 +1,245 @@
+{
+  "rootStatus": 200,
+  "rootHeaders": {
+    "cache-control": "public, must-revalidate, max-age=30",
+    "content-encoding": "br",
+    "content-security-policy": "default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    "content-type": "text/html",
+    "date": "Wed, 02 Sep 2026 04:53:10 GMT",
+    "etag": "\"64419836\"",
+    "last-modified": "Wed, 02 Sep 2026 04:24:43 GMT",
+    "permissions-policy": "camera=(), microphone=(), geolocation=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "strict-transport-security": "max-age=10886400; includeSubDomains; preload",
+    "vary": "Accept-Encoding",
+    "x-content-type-options": "nosniff",
+    "x-dns-prefetch-control": "off",
+    "x-xss-protection": "1; mode=block"
+  },
+  "first": {
+    "title": "Code Proof — inspect Markdown PDFs before release",
+    "lang": "en",
+    "h1": [
+      "Catch PDF bugs before release."
+    ],
+    "main": true,
+    "primary": "Try it with sample data ↓",
+    "primaryBox": {
+      "x": 100,
+      "y": 577.3125,
+      "width": 257.640625,
+      "height": 52,
+      "bottom": 629.3125
+    },
+    "storage": {
+      "local": {},
+      "session": {},
+      "cookie": ""
+    },
+    "scroll": {
+      "width": 1440,
+      "client": 1440
+    }
+  },
+  "keyboard": {
+    "firstFocus": {
+      "text": "Skip to content",
+      "tag": "A",
+      "outlineStyle": "solid",
+      "outlineWidth": "3px",
+      "outlineColor": "rgb(24, 78, 158)",
+      "outlineOffset": "4px"
+    },
+    "mainFocusedAfterEnter": true
+  },
+  "demo": {
+    "url": "https://markdown-pdf-code-proof.sociobot.in/?demo=1#demo",
+    "title": "Demo — Code Proof",
+    "banner": "Demo — sample data, nothing is savedReset demoView install commands",
+    "focused": "demo-title",
+    "output": "DEMO HOLD — do not release — 1 expected defect found\n  Error [code.flow-changed] Code fence on line 7 is present but its line flow changed\nSample workspace: /tmp/codeproof-demo-…\nHTML proof sheet: /tmp/codeproof-demo-…/proof/index.html",
+    "storage": {
+      "local": {},
+      "session": {},
+      "cookie": ""
+    }
+  },
+  "network": {
+    "requests": [
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/",
+        "method": "GET",
+        "type": "document"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/assets/main-BRlpiEkN.js",
+        "method": "GET",
+        "type": "script"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/assets/main-x2eNICXU.css",
+        "method": "GET",
+        "type": "stylesheet"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/code-proof-press.webp",
+        "method": "GET",
+        "type": "image"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/?demo=1",
+        "method": "GET",
+        "type": "document"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/assets/main-BRlpiEkN.js",
+        "method": "GET",
+        "type": "script"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/assets/main-x2eNICXU.css",
+        "method": "GET",
+        "type": "stylesheet"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/code-proof-press.webp",
+        "method": "GET",
+        "type": "image"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/?demo=1",
+        "method": "GET",
+        "type": "document"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/assets/main-BRlpiEkN.js",
+        "method": "GET",
+        "type": "script"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/assets/main-x2eNICXU.css",
+        "method": "GET",
+        "type": "stylesheet"
+      },
+      {
+        "url": "https://markdown-pdf-code-proof.sociobot.in/code-proof-press.webp",
+        "method": "GET",
+        "type": "image"
+      }
+    ],
+    "origins": [
+      "https://markdown-pdf-code-proof.sociobot.in"
+    ],
+    "failures": [],
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  "axeDesktop": {
+    "seriousCritical": []
+  },
+  "serviceWorker": {
+    "controller": true,
+    "active": "activated",
+    "installing": false,
+    "waiting": false,
+    "caches": [
+      "code-proof-v5"
+    ]
+  },
+  "offline": {
+    "title": "Demo — Code Proof",
+    "h1": "Catch PDF bugs before release.",
+    "offlineText": "Offline. The docs and recorded proof still work.",
+    "offlineVisible": true
+  },
+  "mobile": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "controls": [
+      {
+        "name": "Skip to content",
+        "width": 153.515625,
+        "height": 48.796875
+      },
+      {
+        "name": "CP Code Proof release inspector / 0.1",
+        "width": 212.4375,
+        "height": 44
+      },
+      {
+        "name": "Install",
+        "width": 58.25,
+        "height": 44
+      },
+      {
+        "name": "Try it with sample data ↓",
+        "width": 257.640625,
+        "height": 52
+      },
+      {
+        "name": "Copy install command",
+        "width": 199.03125,
+        "height": 44
+      },
+      {
+        "name": "Reset demo",
+        "width": 114.015625,
+        "height": 48
+      },
+      {
+        "name": "View install commands",
+        "width": 151.234375,
+        "height": 44
+      },
+      {
+        "name": "Read the full CLI reference ↗",
+        "width": 263.234375,
+        "height": 44
+      },
+      {
+        "name": "Copy install command",
+        "width": 132,
+        "height": 44
+      },
+      {
+        "name": "Copy check command",
+        "width": 132,
+        "height": 44
+      },
+      {
+        "name": "Copy CI command",
+        "width": 132,
+        "height": 44
+      },
+      {
+        "name": "Home",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "name": "Privacy",
+        "width": 58.25,
+        "height": 44
+      },
+      {
+        "name": "Terms",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "name": "GitHub ↗",
+        "width": 66.609375,
+        "height": 44
+      }
+    ],
+    "motion": {
+      "art": "1e-05s",
+      "line": "1e-05s",
+      "scroll": "auto"
+    },
+    "facts": [],
+    "consoleErrors": [],
+    "pageErrors": [],
+    "axeSeriousCritical": []
+  }
+}

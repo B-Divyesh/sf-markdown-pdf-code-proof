@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "source": "/tmp/codeproof-markdown-forms.fejIPB/setext.md",
+  "pdf": "/tmp/codeproof-markdown-forms.fejIPB/manual.pdf",
+  "engine": "not-run",
+  "summary": {
+    "passed": false,
+    "errors": 1,
+    "warnings": 0,
+    "info": 0,
+    "pages": 0,
+    "code_fences": 1,
+    "internal_links": 1,
+    "pdf_link_annotations": 0
+  },
+  "findings": [
+    {
+      "code": "link.missing-source-target",
+      "severity": "error",
+      "message": "Internal link #retry-policy has no matching Markdown heading",
+      "help": "Fix the fragment or add the missing heading.",
+      "source_line": 4
+    }
+  ]
+}

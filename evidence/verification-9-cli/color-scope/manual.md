@@ -1,0 +1,4 @@
+# Manual
+```rust
+fn main() {}
+```

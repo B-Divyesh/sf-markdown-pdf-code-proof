@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "source": "/tmp/codeproof-width.LhmENI/manual.md",
+  "pdf": "/tmp/codeproof-width.LhmENI/manual.pdf",
+  "engine": "existing-pdf",
+  "summary": {
+    "passed": true,
+    "errors": 0,
+    "warnings": 0,
+    "info": 0,
+    "pages": 1,
+    "code_fences": 1,
+    "internal_links": 0,
+    "pdf_link_annotations": 0
+  },
+  "findings": []
+}

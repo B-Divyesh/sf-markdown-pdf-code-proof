@@ -1,0 +1,95 @@
+{
+  "pages": [
+    {
+      "path": "/",
+      "status": 200,
+      "title": "Code Proof — inspect Markdown PDFs before release",
+      "h1": [
+        "Catch PDF bugs before release."
+      ]
+    },
+    {
+      "path": "/privacy/",
+      "status": 200,
+      "title": "Privacy — Code Proof",
+      "h1": [
+        "How Code Proof handles data."
+      ]
+    },
+    {
+      "path": "/terms/",
+      "status": 200,
+      "title": "Terms — Code Proof",
+      "h1": [
+        "Terms for using Code Proof."
+      ]
+    }
+  ],
+  "notFound": {
+    "path": "/missing-proof",
+    "status": 404,
+    "title": "Page not found — Code Proof",
+    "h1": [
+      "This page was not found."
+    ],
+    "returnHome": true
+  },
+  "links": [
+    {
+      "href": "https://github.com/B-Divyesh/sf-markdown-pdf-code-proof",
+      "status": 200,
+      "targetExists": null
+    },
+    {
+      "href": "https://github.com/B-Divyesh/sf-markdown-pdf-code-proof#usage",
+      "status": 200,
+      "targetExists": null
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/",
+      "status": 200,
+      "targetExists": null
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/#checks",
+      "status": 200,
+      "targetExists": true
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/#install",
+      "status": 200,
+      "targetExists": true
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/#main",
+      "status": 200,
+      "targetExists": true
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/?demo=1#demo",
+      "status": 200,
+      "targetExists": true
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/privacy/",
+      "status": 200,
+      "targetExists": null
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/privacy/#main",
+      "status": 200,
+      "targetExists": true
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/terms/",
+      "status": 200,
+      "targetExists": null
+    },
+    {
+      "href": "https://markdown-pdf-code-proof.sociobot.in/terms/#main",
+      "status": 200,
+      "targetExists": true
+    }
+  ],
+  "failures": []
+}
