@@ -271,7 +271,8 @@ fn documented_existing_pdf_flow_passes_and_writes_proof() {
 
     let html = fs::read_to_string(proof.join("index.html")).unwrap();
     assert!(html.contains("PASS"));
-    assert!(html.contains("Code Proof report"));
+    assert!(html.contains("Code Proof HTML proof sheet"));
+    assert!(html.contains("Code fences"));
 }
 
 #[test]
@@ -841,7 +842,8 @@ fn demo_uses_bundled_sample_data_and_writes_an_isolated_proof() {
         .stdout(predicate::str::contains(format!(
             "Sample workspace: {}",
             workspace.display()
-        )));
+        )))
+        .stdout(predicate::str::contains("HTML proof sheet:"));
 
     assert_eq!(
         fs::read_to_string(workspace.join("sample-manual.md")).unwrap(),

@@ -77,7 +77,7 @@
       <section class="demo" id="demo" aria-labelledby="demo-title">
         <div class="demo-banner" id="demo-banner" role="status" hidden><span>Demo — sample data, nothing is saved</span><span><button class="replay" id="replay" type="button">Reset demo</button><a href="/#install">View install commands</a></span></div>
         <div class="demo-heading">
-          <div><p class="eyebrow">Sample check</p><h2 id="demo-title" tabindex="-1">Sample HOLD report</h2></div>
+          <div><p class="eyebrow">Sample check</p><h2 id="demo-title" tabindex="-1">Sample failed release check</h2></div>
         </div>
         <div class="terminal" aria-label="Recorded Code Proof terminal output">
           <div class="terminal-bar"><span>codeproof demo</span><span>local sample</span></div>
@@ -86,7 +86,7 @@
 <strong class="demo-line" data-step="1">DEMO HOLD — do not release — 1 expected defect found</strong>
 <span class="line demo-line defect" data-step="2">ERROR  [code.flow-changed] source line 7</span>
 <span class="line demo-line" data-step="3">Sample workspace: /tmp/codeproof-demo-…</span>
-<span class="line demo-line" data-step="4">Proof sheet: /tmp/codeproof-demo-…/proof/index.html</span></code></pre>
+<span class="line demo-line" data-step="4">HTML proof sheet: /tmp/codeproof-demo-…/proof/index.html</span></code></pre>
           <div class="terminal-footer"><span>Expected exit 1</span><span>Bundled sample only</span></div>
         </div>
         <p class="sr-only" id="demo-status" aria-live="polite"></p>
@@ -98,10 +98,10 @@
           <h2 id="checks-title">Find release-breaking PDF defects.</h2>
         </div>
         <div class="check-list">
-          <article><span class="check-mark" aria-hidden="true">↔</span><div><h3>Code flow</h3><p>Flags code fence lines that disappear, merge, or wrap in the PDF.</p></div><code>code.*</code></article>
+          <article><span class="check-mark" aria-hidden="true">↔</span><div><h3>Missing or wrapped code</h3><p>Flags code fence lines that disappear, merge, or wrap in the PDF.</p></div><code>code.*</code></article>
           <article><span class="check-mark" aria-hidden="true">⌜</span><div><h3>Page bounds</h3><p>Flags text that runs outside a page edge.</p></div><code>geometry.*</code></article>
           <article><span class="check-mark" aria-hidden="true">#</span><div><h3>Internal links</h3><p>Flags Markdown fragments with a missing or wrong PDF destination.</p></div><code>link.*</code></article>
-          <article><span class="check-mark" aria-hidden="true">◐</span><div><h3>Syntax color</h3><p>Warns when language-tagged blocks produce no detectable non-default PDF color.</p></div><code>highlight.*</code></article>
+          <article><span class="check-mark" aria-hidden="true">◐</span><div><h3>Syntax color</h3><p>Warns when a language-tagged code fence has no detectable syntax color.</p></div><code>highlight.*</code></article>
         </div>
       </section>
 

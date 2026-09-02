@@ -57,7 +57,7 @@ struct CheckArgs {
     #[arg(long, value_name = "DIR", default_value = "proof")]
     out: PathBuf,
 
-    /// Print the report as JSON instead of the terminal summary
+    /// Print the JSON report instead of the terminal summary
     #[arg(long)]
     json: bool,
 
@@ -157,7 +157,10 @@ fn demo(args: DemoArgs) -> Result<bool, String> {
         );
     }
     println!("Sample workspace: {}", workspace.display());
-    println!("Proof sheet: {}", proof_path.join("index.html").display());
+    println!(
+        "HTML proof sheet: {}",
+        proof_path.join("index.html").display()
+    );
     Ok(report.summary.passed)
 }
 
@@ -244,14 +247,14 @@ fn print_report(report: &Report, json: bool) -> Result<(), String> {
         return Ok(());
     }
     println!(
-        "{} — {} pages, {} code blocks, {} errors, {} warnings",
+        "{} — {} pages, {} code fences, {} errors, {} warnings",
         if report.summary.passed {
             "PASS"
         } else {
             "HOLD"
         },
         report.summary.pages,
-        report.summary.code_blocks,
+        report.summary.code_fences,
         report.summary.errors,
         report.summary.warnings
     );
@@ -261,6 +264,6 @@ fn print_report(report: &Report, json: bool) -> Result<(), String> {
             finding.severity, finding.code, finding.message
         );
     }
-    println!("Proof sheet: index.html");
+    println!("HTML proof sheet: index.html");
     Ok(())
 }

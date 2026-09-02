@@ -14,8 +14,6 @@ Install from the public repository with Rust 1.88 or newer:
 cargo install --git https://github.com/B-Divyesh/sf-markdown-pdf-code-proof.git --locked codeproof
 ```
 
-For a checkout, run `cargo install --path cli` from the repository root.
-
 ## Try the bundled sample
 
 Run a complete check without your own files:
@@ -67,16 +65,16 @@ warnings.
   must open a page in the finished PDF.
 - Code fence text must remain present and keep its line breaks. One source line
   fails if it wraps in the PDF.
-- Painted text is checked against all four MediaBox or CropBox edges.
+- Text is checked against every visible PDF page edge.
 - A language-tagged code fence warns when no non-default PDF color is found.
 
 Run `codeproof check --help` for command options.
 
 ## Renderer safety
 
-On Linux, renderer commands start only after Landlock and seccomp setup
-succeeds. Renderer commands cannot create network sockets. Existing-PDF checks
-do not start a renderer. A renderer has a deadline set by `--timeout`.
+Code Proof applies its Linux sandbox before a renderer starts. Renderer
+commands cannot create network sockets. Existing-PDF checks do not start a
+renderer. A renderer has a deadline set by `--timeout`.
 
 ## Develop and verify
 
@@ -86,8 +84,7 @@ npm test
 npm run build
 ```
 
-`npm test` runs Rust unit/integration tests and browser checks. `npm run build`
-creates `target/release/codeproof` and `dist/site/`.
+Verify the project: `npm test`. Build the CLI and site: `npm run build`.
 
 Create the publishable Rust package without publishing:
 

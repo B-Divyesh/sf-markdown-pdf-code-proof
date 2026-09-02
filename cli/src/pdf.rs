@@ -60,20 +60,23 @@ pub fn inspect_pdf(
                     inspect_operations(&content, page_box(&document, *id), overflow_tolerance);
                 has_color |= colored;
                 for overflow in overflows {
-                    findings.push(Finding::new(
-                        "geometry.text-overflow",
-                        Severity::Error,
-                        format!(
-                            "Painted text reaches {}={:.1}pt past the {} page boundary at {}={:.1}pt",
-                            overflow.axis,
-                            overflow.coordinate,
-                            overflow.side,
-                            overflow.axis,
-                            overflow.boundary
-                        ),
-                        "Move, wrap, or shorten the affected text, then render again.",
-                        None,
-                    ).on_page(*number));
+                    findings.push(
+                        Finding::new(
+                            "geometry.text-overflow",
+                            Severity::Error,
+                            format!(
+                                "Text reaches {}={:.1}pt past the {} page boundary at {}={:.1}pt",
+                                overflow.axis,
+                                overflow.coordinate,
+                                overflow.side,
+                                overflow.axis,
+                                overflow.boundary
+                            ),
+                            "Move, wrap, or shorten the affected text, then render again.",
+                            None,
+                        )
+                        .on_page(*number),
+                    );
                 }
             }
         }
@@ -99,7 +102,7 @@ pub fn inspect_pdf(
                 "code.content-missing",
                 Severity::Error,
                 format!(
-                    "Code block on line {} lost {} of {} non-empty lines",
+                    "Code fence on line {} lost {} of {} non-empty lines",
                     fence.line,
                     missing.len(),
                     useful.len()
@@ -112,7 +115,7 @@ pub fn inspect_pdf(
                 "code.flow-changed",
                 Severity::Error,
                 format!(
-                    "Code block on line {} is present but its line flow changed",
+                    "Code fence on line {} is present but its line flow changed",
                     fence.line
                 ),
                 "Restore the source line boundaries and order, then render again.",

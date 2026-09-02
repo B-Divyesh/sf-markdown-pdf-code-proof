@@ -111,7 +111,7 @@ pub fn parse_markdown(path: &Path, source: &str) -> SourceContract {
         contract.findings.push(Finding::new(
             "source.no-code-fences",
             Severity::Info,
-            format!("{} contains no fenced code blocks", path.display()),
+            format!("{} contains no code fences", path.display()),
             "Link and page-bound checks will still run.",
             None,
         ));

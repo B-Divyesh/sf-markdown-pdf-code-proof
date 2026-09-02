@@ -17,7 +17,7 @@ target/release/codeproof demo --out /tmp/codeproof-sample
 The browser recording is available at
 <https://markdown-pdf-code-proof.sociobot.in/?demo=1#demo>. This route sets
 the title to “Demo — Code Proof”, shows the persistent sample-data banner, and
-focuses the sample report heading. “Reset demo” replays the recording. “View
+focuses the “Sample failed release check” heading. “Reset demo” replays the recording. “View
 install commands” leaves demo mode at `/#install`.
 
 ## Sample and isolation

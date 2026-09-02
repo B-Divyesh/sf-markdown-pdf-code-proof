@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -115,6 +116,32 @@ test('390px layout keeps primary paths available', async ({ page }) => {
 test('brand accessible name contains its visible label', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('link', { name: /Code Proof release inspector \/ 0\.1/i })).toBeVisible();
+});
+
+test('user-facing copy keeps one plain term for each output and check', async ({ page }) => {
+  await page.goto('/?demo=1#demo');
+  await expect(page.locator('#demo-title')).toHaveText('Sample failed release check');
+  await expect(page.getByRole('heading', { name: 'Missing or wrapped code' })).toBeVisible();
+  await expect(page.getByText('Warns when a language-tagged code fence has no detectable syntax color.')).toBeVisible();
+
+  const landing = await page.locator('body').innerText();
+  const readme = await readFile('README.md', 'utf8');
+  const publicCopy = `${landing}\n${readme}`;
+  for (const obsolete of [
+    'language-tagged blocks',
+    'Sample HOLD report',
+    'Code flow',
+    'Painted text',
+    'MediaBox',
+    'CropBox',
+    'Landlock',
+    'seccomp',
+    'cargo install --path cli',
+    '`npm test` runs',
+    '`npm run build` creates'
+  ]) {
+    expect(publicCopy, `obsolete public wording: ${obsolete}`).not.toContain(obsolete);
+  }
 });
 
 test('@claim:offline-reload installed shell stays useful offline', async ({ browser }) => {
