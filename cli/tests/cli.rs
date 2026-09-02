@@ -275,6 +275,57 @@ fn documented_existing_pdf_flow_passes_and_writes_proof() {
     assert!(html.contains("Code fences"));
 }
 
+#[cfg(unix)]
+#[test]
+fn input_files_remain_unchanged_in_existing_pdf_and_custom_renderer_checks() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = tempfile::tempdir().unwrap();
+    let markdown = temp.path().join("manual.md");
+    let fixture = temp.path().join("fixture.pdf");
+    let renderer = temp.path().join("render-fixture");
+    let source = "# Guide\n[Jump](#guide)\n```rust\nfn main() {}\n```\n";
+    fs::write(&markdown, source).unwrap();
+    fixture_pdf(&fixture, &["guide"], &["guide"]);
+
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--pdf",
+            fixture.to_str().unwrap(),
+            "--out",
+            temp.path().join("existing-proof").to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .success();
+    assert_eq!(fs::read(&markdown).unwrap(), source.as_bytes());
+
+    fs::write(
+        &renderer,
+        format!("#!/bin/sh\ncp '{}' \"$2\"\n", fixture.display()),
+    )
+    .unwrap();
+    fs::set_permissions(&renderer, fs::Permissions::from_mode(0o755)).unwrap();
+    let command = format!("{} {{input}} {{output}}", renderer.display());
+    Command::cargo_bin("codeproof")
+        .unwrap()
+        .args([
+            "check",
+            markdown.to_str().unwrap(),
+            "--engine-command",
+            &command,
+            "--out",
+            temp.path().join("renderer-proof").to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .success();
+    assert_eq!(fs::read(&markdown).unwrap(), source.as_bytes());
+}
+
 #[test]
 fn flattened_code_lines_fail_the_release_contract() {
     let temp = tempfile::tempdir().unwrap();

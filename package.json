@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "test": "npm run test:msrv && cargo test --workspace && npm run test:site && npm run test:license",
+    "test": "npm run test:copy-audit && npm run test:msrv && cargo test --workspace && npm run test:site && npm run test:license",
+    "test:copy-audit": "node scripts/audit-copy.mjs --check",
     "test:msrv": "node scripts/check-msrv.mjs",
     "test:site": "npm run build:site && playwright test",
     "test:install": "node scripts/clean-install.mjs",

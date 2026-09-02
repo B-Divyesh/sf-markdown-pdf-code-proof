@@ -1,8 +1,8 @@
 # Code Proof
 
 Code Proof checks code-heavy Markdown manuals before PDF release. It compares
-your Markdown with a finished PDF and writes an HTML proof sheet. It is a
-verifier, not an editor.
+your Markdown with a finished PDF and writes an HTML proof sheet. Code Proof
+does not edit the supplied Markdown source.
 
 Live docs: <https://markdown-pdf-code-proof.sociobot.in>
 
