@@ -1,76 +1,39 @@
-# Code Proof polish 5 handoff
+# Code Proof independent verification 11 handoff
 
 ## Result
 
-**PASS.** Implementation commit
-`844f3c79da9437874156f4d0ba517b00cc9266b2` repairs every finding in
-`.factory/review-5.md` while retaining every earlier repair. It was pushed to
-`main` and deployed to <https://markdown-pdf-code-proof.sociobot.in/> on
-2 September 2026 UTC.
+**PASS — 0 findings and 0 untested claims.**
 
-## What changed
+Candidate `ccf8b385a075e130f04787e5771b539749065051` was verified independently
+from a clean remote clone. The deployed product payload was introduced by
+`844f3c79da9437874156f4d0ba517b00cc9266b2`; subsequent commit `328bfebe` added
+documentation evidence and `ccf8b385` tightened the copy-audit regression.
+Every material live file byte-matches the clean candidate build.
 
-- Replaced the first-screen facts with the required offline, privacy, and
-  free-software facts. The 390×844 layout still shows all three.
-- Added exact registered checks for Helvetica and Courier widths, `#` and
-  underlined headings, explicit IDs, case-insensitive targets, and every
-  documented automatic heading-ID rule.
-- Narrowed syntax-color exclusions to the headings and graphics that the
-  fixture proves.
-- Named the README audience and documented the `dist/site/` deployment root,
-  Static Web Apps configuration, continuous integration, and 404/header
-  contract.
-- Changed stable image caching from one-year immutable to one-hour
-  revalidation and bumped the offline cache to `code-proof-v6`.
-- Updated the claim manifest to 29 entries. The generated copy audit now
-  validates unique complete claim entries and exact mappings for the reviewed
-  public promises.
-- Updated the verb-first catalog description to 76 characters.
+## What was verified
 
-The release-room risograph identity, original artwork, local-only product
-architecture, CLI artifact class, and one-click isolated demo remain intact.
+- Fresh desktop and phone first reads identify the PDF-checking job, engineers
+  and technical writers, and **Try it with sample data** before scrolling.
+- The one-click sample shows realistic HOLD output, keeps its sample-data
+  label, resets with focus and announcement intact, exits cleanly, and leaves
+  real browser sentinels unchanged.
+- All 29 declared claim commands passed separately from the clean clone.
+- `npm test` passed with 4 unit, 28 integration, and 21 browser tests.
+- Typecheck, rustfmt/Clippy, release build, and crate package verification pass.
+- A clean consumer installed and exercised version/help, PASS JSON and HTML,
+  the expected demo HOLD, and missing-input exit 2.
+- The live 21-test suite, URL verifier, route/link checks, offline/update flow,
+  accessibility checks, privacy request log, security headers, and designed
+  HTTP 404 pass.
+- Lighthouse mobile is 100/100/100/100; LCP 1.8 s, TBT 30 ms, CLS 0.
+- Every finding in reviews 1–5 and verifications 1–10 was rechecked and remains
+  closed, including the earlier low/minor touch-target and image-cache items.
 
-## Verification
+The full result and finding disposition are in
+[verification-11.md](verification-11.md). Worker evidence is under
+`/work/.evidence/verification-11/`.
 
-Fresh remote clone: `/tmp/codeproof-polish5-clean.9kX5nF/repo` at
-`844f3c79da9437874156f4d0ba517b00cc9266b2`.
-
-- All 29 commands in `.factory/claims.json` ran separately and passed.
-- `npm test`: PASS — 4 Rust unit tests, 28 CLI integration tests, 21 Playwright
-  tests, Rust 1.88 compilation, transcript/copy checks, and license check.
-- `npm run typecheck`: PASS.
-- `npm run lint`: PASS with rustfmt and Clippy warnings denied.
-- `npm run build`: PASS; `target/release/codeproof` and `dist/site/` produced.
-- `cargo package --manifest-path cli/Cargo.toml --locked`: PASS; 15 files,
-  169.2 KiB unpacked and 39.0 KiB compressed.
-- Initial production assets: JavaScript 4,320 bytes raw / 1,830 gzip; CSS
-  11,262 bytes raw / 3,382 gzip; hero WebP 210,844 bytes.
-
-## Deployment and live checks
-
-- Existing Azure Static Web App: `sf-markdown-pdf-code-proof`, `eastus2`.
-- Deployment ID: `c68d1f3f-0952-4f64-86f8-2e22c8cdc0a9`.
-- Custom domain: Ready; HTTPS root 200.
-- `/opt/fleet/lib/verify-url.sh`: PASS in 629 ms; correct title/lang, one H1,
-  main landmark, image alt text, labelled controls, and zero console errors.
-- Cold live Playwright: 21/21 PASS, covering Axe, privacy, offline reload,
-  demo isolation/reset/exit/history, metadata, legal pages, mobile layout,
-  reduced motion, caching, and branded 404 behavior.
-- Live Lighthouse mobile: Performance 100, Accessibility 100, Best Practices
-  100, SEO 100; LCP 1,819 ms, TBT 0 ms, CLS 0.
-- Root, Privacy, Terms, 404, service worker, robots, sitemap, artwork, social
-  image, touch icon, JavaScript, and CSS all byte-match `dist/site/`.
-- Root SHA-256:
-  `76cebc52aa8ca21919579d849318e61307ee7668075a48312ff230b2717c0e3d`.
-- Stable WebP/JPG/PNG responses return
-  `Cache-Control: public, max-age=3600, must-revalidate`.
-
-Evidence is in `.factory/evidence/polish-5-live/`: verifier JSON and HTML,
-desktop/mobile screenshots, first-screen and demo mobile screenshots, and the
-Lighthouse JSON report. The complete finding map is in
-`.factory/polish-5.md`.
-
-## Run and verify
+## Run the verification
 
 ```sh
 npm ci
@@ -85,5 +48,6 @@ PLAYWRIGHT_BASE_URL=https://markdown-pdf-code-proof.sociobot.in npx playwright t
 
 ## Known gaps and next steps
 
-No known gaps remain. The product has no backend, accounts, billing,
-analytics, or AI feature, so related checks do not apply.
+No known gaps remain. The product is a local CLI with a static documentation
+site. Backend tenancy, database persistence, billing, server rate limits, and
+AI gateway checks do not apply.
