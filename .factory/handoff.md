@@ -1,53 +1,47 @@
-# Code Proof independent verification 11 handoff
+# Code Proof review 6 handoff
 
 ## Result
 
 **PASS — 0 findings and 0 untested claims.**
 
-Candidate `ccf8b385a075e130f04787e5771b539749065051` was verified independently
-from a clean remote clone. The deployed product payload was introduced by
-`844f3c79da9437874156f4d0ba517b00cc9266b2`; subsequent commit `328bfebe` added
-documentation evidence and `ccf8b385` tightened the copy-audit regression.
-Every material live file byte-matches the clean candidate build.
+Reviewed candidate: `ccf8b385a075e130f04787e5771b539749065051`.
+Live product payload: `844f3c79da9437874156f4d0ba517b00cc9266b2`.
+Documentation head: `2e8b7765fca263c6a493219f9e56b0aa878ea879`.
 
-## What was verified
+## What was done
 
-- Fresh desktop and phone first reads identify the PDF-checking job, engineers
-  and technical writers, and **Try it with sample data** before scrolling.
-- The one-click sample shows realistic HOLD output, keeps its sample-data
-  label, resets with focus and announcement intact, exits cleanly, and leaves
-  real browser sentinels unchanged.
-- All 29 declared claim commands passed separately from the clean clone.
-- `npm test` passed with 4 unit, 28 integration, and 21 browser tests.
-- Typecheck, rustfmt/Clippy, release build, and crate package verification pass.
-- A clean consumer installed and exercised version/help, PASS JSON and HTML,
-  the expected demo HOLD, and missing-input exit 2.
-- The live 21-test suite, URL verifier, route/link checks, offline/update flow,
-  accessibility checks, privacy request log, security headers, and designed
-  HTTP 404 pass.
-- Lighthouse mobile is 100/100/100/100; LCP 1.8 s, TBT 30 ms, CLS 0.
-- Every finding in reviews 1–5 and verifications 1–10 was rechecked and remains
-  closed, including the earlier low/minor touch-target and image-cache items.
+- Opened the live page in fresh desktop and phone browsers before scrolling.
+  Both stated the job, audience, and **Try it with sample data** first action.
+- Ran all 29 exact claim commands from a clean clone. All passed.
+- Ran `npm test` again: 4 unit, 28 CLI integration, and 21 browser tests pass.
+- Ran typecheck, lint, release build, and crate package checks successfully.
+- Exercised the public Git consumer install and the bundled CLI demo. The demo
+  returned exit 1 and wrote a populated HOLD proof with `code.flow-changed`.
+- Checked the live sample, reset focus, storage isolation, keyboard, reduced
+  motion, privacy requests, offline reload/update, route titles, legal pages,
+  metadata, headers, links, image caching, and designed 404.
+- Confirmed material clean-build files byte-match the live site.
+- Rechecked every finding from reviews 1–5 and verifications 1–10. None
+  regressed.
 
-The full result and finding disposition are in
-[verification-11.md](verification-11.md). Worker evidence is under
-`/work/.evidence/verification-11/`.
+The full report is [review-6.md](review-6.md). Live evidence is under
+`/work/.evidence/review-6-live/`.
 
-## Run the verification
+## Run the checks
 
-```sh
-npm ci
-npm test
-npm run typecheck
-npm run lint
-npm run build
-cargo package --manifest-path cli/Cargo.toml --locked
-PLAYWRIGHT_BASE_URL=https://markdown-pdf-code-proof.sociobot.in npx playwright test
-/opt/fleet/lib/verify-url.sh https://markdown-pdf-code-proof.sociobot.in /tmp/code-proof-verify
-```
+    npm ci
+    npm test
+    npm run typecheck
+    npm run lint
+    npm run build
+    cargo package --manifest-path cli/Cargo.toml --locked
+    PLAYWRIGHT_BASE_URL=https://markdown-pdf-code-proof.sociobot.in npx playwright test
+    /opt/fleet/lib/verify-url.sh https://markdown-pdf-code-proof.sociobot.in /tmp/code-proof-verify
 
-## Known gaps and next steps
+## Known gaps
 
-No known gaps remain. The product is a local CLI with a static documentation
-site. Backend tenancy, database persistence, billing, server rate limits, and
-AI gateway checks do not apply.
+No product gaps remain. The standalone Axe CLI wrapper could not run in this
+worker because no system Chrome binary is installed. Playwright Axe ran in its
+installed Chromium and passed, so no accessibility claim is untested. The
+product is a local CLI and static site; backend tenancy, database persistence,
+billing, rate limits, and AI gateway checks do not apply.
